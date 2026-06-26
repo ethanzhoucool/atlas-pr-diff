@@ -1,0 +1,172 @@
+{
+  "app": "Ubert",
+  "base": "main-512d672",
+  "head": "main-20260522-105156",
+  "verdict": "Map changed \u2014 review impact",
+  "counts": {
+    "screens_added": 9,
+    "screens_removed": 1,
+    "screens_changed": 5,
+    "screens_renamed": 0,
+    "nav_churn": 0,
+    "edges_added": 20,
+    "edges_removed": 6,
+    "orphaned_screens": 0,
+    "affected_flows": 1,
+    "untested_screens": 0,
+    "lost_coverage_edges": 7
+  },
+  "warnings": [],
+  "added": [
+    {
+      "name": "trip_receipt_itemized",
+      "area": "Account settings",
+      "kind": "detail",
+      "description": "Display a detailed financial breakdown of a completed trip fare, including taxes, fees, and payment method used."
+    },
+    {
+      "name": "uber_one_benefits_list",
+      "area": "Account settings",
+      "kind": "list",
+      "description": "Display a comprehensive list of all membership benefits categorized by service type like Eats, Rides, and Grocery."
+    },
+    {
+      "name": "uber_one_checkout",
+      "area": "Account settings",
+      "kind": "checkout",
+      "description": "Review and confirm a subscription membership plan and payment method to start a free trial or paid membership."
+    },
+    {
+      "name": "uber_one_membership_detail",
+      "area": "Account settings",
+      "kind": "detail",
+      "description": "Explain the benefits of the Uber One membership and provide an entry point for users to subscribe or start a trial."
+    },
+    {
+      "name": "uber_one_signup_success",
+      "area": "Account settings",
+      "kind": "onboarding",
+      "description": "Confirm that the user has successfully started their Uber One membership and highlight the active benefits."
+    },
+    {
+      "name": "package_delivery_checkout_review",
+      "area": "Commerce",
+      "kind": "checkout",
+      "description": "Review package details, pickup/drop-off locations, and estimated cost before confirming the delivery request."
+    },
+    {
+      "name": "package_pickup_details_form",
+      "area": "Commerce",
+      "kind": "form",
+      "description": "Capture the pickup address, sender contact information, and specific driver instructions for a package delivery request."
+    },
+    {
+      "name": "airline_selection_list",
+      "area": "Home",
+      "kind": "list",
+      "description": "Allows users to select their airline to help drivers identify the correct terminal for airport drop-offs or pickups."
+    },
+    {
+      "name": "ride_receipt_rating",
+      "area": "Home",
+      "kind": "checkout",
+      "description": "To provide a trip summary including cost and distance, and to allow the user to rate and tip the driver after arrival."
+    }
+  ],
+  "removed": [
+    {
+      "name": "ride_matching_status",
+      "area": "Home",
+      "kind": "loading"
+    }
+  ],
+  "changed": [
+    {
+      "name": "account_profile_hub",
+      "area": "Account settings",
+      "reasons": [
+        "now navigates to new screen `uber_one_membership_detail`"
+      ]
+    },
+    {
+      "name": "package_details_entry",
+      "area": "Commerce",
+      "reasons": [
+        "now navigates to new screen `package_pickup_details_form`"
+      ]
+    },
+    {
+      "name": "ride_destination_search_results",
+      "area": "Home",
+      "reasons": [
+        "now navigates to new screen `airline_selection_list`"
+      ]
+    },
+    {
+      "name": "ride_en_route_tracking",
+      "area": "Home",
+      "reasons": [
+        "now navigates to new screen `ride_receipt_rating`"
+      ]
+    },
+    {
+      "name": "ride_service_selection",
+      "area": "Home",
+      "reasons": [
+        "no longer navigates to removed screen `ride_matching_status`"
+      ]
+    }
+  ],
+  "renamed": [],
+  "nav_churn": [],
+  "untested_screens": [],
+  "affected_flows": [
+    {
+      "id": "0f5c504e-1a93-440f-bbff-42f3a8cb7f07",
+      "label": "Select a ride",
+      "area": "Home",
+      "hit_screens": [
+        "ride_destination_search_results",
+        "ride_service_selection"
+      ]
+    }
+  ],
+  "orphaned_screens": [],
+  "lost_coverage_edges": [
+    {
+      "from": "ride_service_selection",
+      "to": "ride_matching_status",
+      "action": "Device action: tap"
+    },
+    {
+      "from": "ride_service_selection",
+      "to": "ride_matching_status",
+      "action": "the black button at the bottom with white 'Confirm UberX' text"
+    },
+    {
+      "from": "delivery_home_feed",
+      "to": "home_courier_landing",
+      "action": "Device action: tap"
+    },
+    {
+      "from": "ride_matching_status",
+      "to": "rides_home_personalized_dashboard",
+      "action": "Device action: tap"
+    },
+    {
+      "from": "ride_matching_status",
+      "to": "ride_en_route_tracking",
+      "action": "Waiting for the 'Finding your driver' process to complete and transition to the 'Driver Matched' screen where 'Start Trip' will be available."
+    },
+    {
+      "from": "shops_home_feed",
+      "to": "rides_home_personalized_dashboard",
+      "action": "Device action: tap"
+    },
+    {
+      "from": "help_landing",
+      "to": "rides_home_personalized_dashboard",
+      "action": "the left-pointing arrow icon in the top-left corner"
+    }
+  ]
+}
