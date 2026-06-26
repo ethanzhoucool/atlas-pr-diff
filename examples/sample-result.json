@@ -1,37 +1,23 @@
 {
   "app": "Ubert",
   "base": "main-512d672",
-  "head": "main-20260522-105156",
-  "verdict": "Map changed \u2014 review impact",
+  "head": "main-c6739d8-ipad",
+  "verdict": "New/changed screens are untested",
   "counts": {
-    "screens_added": 9,
-    "screens_removed": 1,
-    "screens_changed": 5,
+    "screens_added": 10,
+    "screens_removed": 4,
+    "screens_changed": 9,
     "screens_renamed": 0,
-    "nav_churn": 0,
-    "edges_added": 20,
-    "edges_removed": 6,
+    "nav_churn": 1,
+    "edges_added": 62,
+    "edges_removed": 10,
     "orphaned_screens": 0,
     "affected_flows": 1,
-    "untested_screens": 0,
-    "lost_coverage_edges": 7
+    "untested_screens": 3,
+    "lost_coverage_edges": 36
   },
   "warnings": [],
   "added": [
-    {
-      "name": "trip_receipt_itemized",
-      "area": "Account settings",
-      "kind": "detail",
-      "description": "Display a detailed financial breakdown of a completed trip fare, including taxes, fees, and payment method used.",
-      "viewer_url": "https://app.revyl.ai/apps/3ccf53c0-314a-498a-b9c8-0b7bd173c57f/atlas?focus=screen&entityId=6c93ac9c-9252-4ff6-b81d-ac61369aa536"
-    },
-    {
-      "name": "uber_one_benefits_list",
-      "area": "Account settings",
-      "kind": "list",
-      "description": "Display a comprehensive list of all membership benefits categorized by service type like Eats, Rides, and Grocery.",
-      "viewer_url": "https://app.revyl.ai/apps/3ccf53c0-314a-498a-b9c8-0b7bd173c57f/atlas?focus=screen&entityId=c722ecc0-c7d1-445d-9d16-5d7145b5697f"
-    },
     {
       "name": "uber_one_checkout",
       "area": "Account settings",
@@ -45,6 +31,13 @@
       "kind": "detail",
       "description": "Explain the benefits of the Uber One membership and provide an entry point for users to subscribe or start a trial.",
       "viewer_url": "https://app.revyl.ai/apps/3ccf53c0-314a-498a-b9c8-0b7bd173c57f/atlas?focus=screen&entityId=6ad07ae7-8a07-4e30-bce6-81624bd90430"
+    },
+    {
+      "name": "uber_one_membership_marketing",
+      "area": "Account settings",
+      "kind": "onboarding",
+      "description": "Promote and sell the Uber One subscription membership by highlighting benefits and offering a free trial.",
+      "viewer_url": "https://app.revyl.ai/apps/3ccf53c0-314a-498a-b9c8-0b7bd173c57f/atlas?focus=screen&entityId=0f988fbf-1cd3-40bd-af33-0ad67a0566be"
     },
     {
       "name": "uber_one_signup_success",
@@ -68,6 +61,20 @@
       "viewer_url": "https://app.revyl.ai/apps/3ccf53c0-314a-498a-b9c8-0b7bd173c57f/atlas?focus=screen&entityId=2b1078c0-831d-4e19-9f97-0acbddb11de4"
     },
     {
+      "name": "shops_cart_empty",
+      "area": "Commerce",
+      "kind": "empty_state",
+      "description": "Displays a message to the user when no items have been added to their shopping cart.",
+      "viewer_url": "https://app.revyl.ai/apps/3ccf53c0-314a-498a-b9c8-0b7bd173c57f/atlas?focus=screen&entityId=2ccd3e73-1c87-422d-bb22-2390adb7f497"
+    },
+    {
+      "name": "trip_summary_rating",
+      "area": "Commerce",
+      "kind": "checkout",
+      "description": "Allows users to review trip statistics, rate their driver, and provide a tip after arriving at their destination.",
+      "viewer_url": "https://app.revyl.ai/apps/3ccf53c0-314a-498a-b9c8-0b7bd173c57f/atlas?focus=screen&entityId=3038b3d4-0448-44ac-9b51-43b176b89ebc"
+    },
+    {
       "name": "airline_selection_list",
       "area": "Home",
       "kind": "list",
@@ -84,10 +91,28 @@
   ],
   "removed": [
     {
-      "name": "ride_matching_status",
-      "area": "Home",
-      "kind": "loading",
-      "viewer_url": "https://app.revyl.ai/apps/3ccf53c0-314a-498a-b9c8-0b7bd173c57f/atlas?focus=screen&entityId=778e0e09-3f18-4088-b24c-0a3d07ee77f2"
+      "name": "account_settings_language_picker",
+      "area": "Account settings",
+      "kind": "list",
+      "viewer_url": "https://app.revyl.ai/apps/3ccf53c0-314a-498a-b9c8-0b7bd173c57f/atlas?focus=screen&entityId=4267c660-9df2-467a-be0b-7b126a8af605"
+    },
+    {
+      "name": "contact_support_form",
+      "area": "Account settings",
+      "kind": "form",
+      "viewer_url": "https://app.revyl.ai/apps/3ccf53c0-314a-498a-b9c8-0b7bd173c57f/atlas?focus=screen&entityId=18355c76-761f-49b8-9468-84028c275e89"
+    },
+    {
+      "name": "notification_preferences",
+      "area": "Account settings",
+      "kind": "settings",
+      "viewer_url": "https://app.revyl.ai/apps/3ccf53c0-314a-498a-b9c8-0b7bd173c57f/atlas?focus=screen&entityId=5a03f397-ac31-4661-8c44-5434d29d0a4e"
+    },
+    {
+      "name": "car_rental_checkout_confirmation",
+      "area": "Commerce",
+      "kind": "checkout",
+      "viewer_url": "https://app.revyl.ai/apps/3ccf53c0-314a-498a-b9c8-0b7bd173c57f/atlas?focus=screen&entityId=470d4f01-b666-46f3-9254-b40c92b6a7f0"
     }
   ],
   "changed": [
@@ -95,9 +120,35 @@
       "name": "account_profile_hub",
       "area": "Account settings",
       "reasons": [
+        "now navigates to new screen `uber_one_membership_marketing`",
         "now navigates to new screen `uber_one_membership_detail`"
       ],
       "viewer_url": "https://app.revyl.ai/apps/3ccf53c0-314a-498a-b9c8-0b7bd173c57f/atlas?focus=screen&entityId=24caf738-ca8f-4c52-8d52-f2435ca940f2"
+    },
+    {
+      "name": "account_settings",
+      "area": "Account settings",
+      "reasons": [
+        "no longer navigates to removed screen `account_settings_language_picker`",
+        "no longer navigates to removed screen `notification_preferences`"
+      ],
+      "viewer_url": "https://app.revyl.ai/apps/3ccf53c0-314a-498a-b9c8-0b7bd173c57f/atlas?focus=screen&entityId=1286c8f6-97c8-46f0-9707-e79468cb5cf1"
+    },
+    {
+      "name": "help_landing",
+      "area": "Account settings",
+      "reasons": [
+        "no longer navigates to removed screen `contact_support_form`"
+      ],
+      "viewer_url": "https://app.revyl.ai/apps/3ccf53c0-314a-498a-b9c8-0b7bd173c57f/atlas?focus=screen&entityId=b5b990af-5be2-407c-9943-11b670674c20"
+    },
+    {
+      "name": "car_rental_checkout",
+      "area": "Commerce",
+      "reasons": [
+        "no longer navigates to removed screen `car_rental_checkout_confirmation`"
+      ],
+      "viewer_url": "https://app.revyl.ai/apps/3ccf53c0-314a-498a-b9c8-0b7bd173c57f/atlas?focus=screen&entityId=1e6c7905-7fa3-4dce-8bb5-81f897a03d46"
     },
     {
       "name": "package_details_entry",
@@ -106,6 +157,14 @@
         "now navigates to new screen `package_pickup_details_form`"
       ],
       "viewer_url": "https://app.revyl.ai/apps/3ccf53c0-314a-498a-b9c8-0b7bd173c57f/atlas?focus=screen&entityId=0bd516d7-b7f0-4d4e-8538-3d8200adc2d3"
+    },
+    {
+      "name": "shops_storefront_grocery",
+      "area": "Commerce",
+      "reasons": [
+        "now navigates to new screen `shops_cart_empty`"
+      ],
+      "viewer_url": "https://app.revyl.ai/apps/3ccf53c0-314a-498a-b9c8-0b7bd173c57f/atlas?focus=screen&entityId=7230ce6b-4cee-422e-becc-3667788e2a16"
     },
     {
       "name": "ride_destination_search_results",
@@ -119,44 +178,161 @@
       "name": "ride_en_route_tracking",
       "area": "Home",
       "reasons": [
+        "now navigates to new screen `trip_summary_rating`",
         "now navigates to new screen `ride_receipt_rating`"
       ],
       "viewer_url": "https://app.revyl.ai/apps/3ccf53c0-314a-498a-b9c8-0b7bd173c57f/atlas?focus=screen&entityId=02f6f04b-fc75-4648-aa0d-cd9a95e17ea5"
     },
     {
-      "name": "ride_service_selection",
+      "name": "ride_matching_status",
       "area": "Home",
       "reasons": [
-        "no longer navigates to removed screen `ride_matching_status`"
+        "purpose/description changed",
+        "primary actions +1 -1"
       ],
-      "viewer_url": "https://app.revyl.ai/apps/3ccf53c0-314a-498a-b9c8-0b7bd173c57f/atlas?focus=screen&entityId=0f5c504e-1a93-440f-bbff-42f3a8cb7f07"
+      "viewer_url": "https://app.revyl.ai/apps/3ccf53c0-314a-498a-b9c8-0b7bd173c57f/atlas?focus=screen&entityId=2fe1bdac-b34e-4d25-95a6-0ca4d42c73e5"
     }
   ],
   "renamed": [],
-  "nav_churn": [],
-  "untested_screens": [],
+  "nav_churn": [
+    {
+      "name": "rides_home_personalized_dashboard",
+      "area": "Home"
+    }
+  ],
+  "untested_screens": [
+    {
+      "id": "0f988fbf-1cd3-40bd-af33-0ad67a0566be",
+      "name": "uber_one_membership_marketing",
+      "product_area": "Account settings",
+      "status": "new",
+      "incoming_edges": 1,
+      "outgoing_edges": 1,
+      "reach_path": [
+        "rides_home_personalized_dashboard",
+        "account_profile_hub",
+        "uber_one_membership_marketing"
+      ],
+      "viewer_url": "https://app.revyl.ai/apps/3ccf53c0-314a-498a-b9c8-0b7bd173c57f/atlas?focus=screen&entityId=0f988fbf-1cd3-40bd-af33-0ad67a0566be"
+    },
+    {
+      "id": "3038b3d4-0448-44ac-9b51-43b176b89ebc",
+      "name": "trip_summary_rating",
+      "product_area": "Commerce",
+      "status": "new",
+      "incoming_edges": 1,
+      "outgoing_edges": 0,
+      "reach_path": [
+        "ride_en_route_tracking",
+        "trip_summary_rating"
+      ],
+      "viewer_url": "https://app.revyl.ai/apps/3ccf53c0-314a-498a-b9c8-0b7bd173c57f/atlas?focus=screen&entityId=3038b3d4-0448-44ac-9b51-43b176b89ebc"
+    },
+    {
+      "id": "a2ae31f4-2b2a-4b20-946d-07155470134d",
+      "name": "airline_selection_list",
+      "product_area": "Home",
+      "status": "new",
+      "incoming_edges": 2,
+      "outgoing_edges": 1,
+      "reach_path": [
+        "airline_selection_list"
+      ],
+      "viewer_url": "https://app.revyl.ai/apps/3ccf53c0-314a-498a-b9c8-0b7bd173c57f/atlas?focus=screen&entityId=a2ae31f4-2b2a-4b20-946d-07155470134d"
+    }
+  ],
   "affected_flows": [
     {
       "id": "0f5c504e-1a93-440f-bbff-42f3a8cb7f07",
       "label": "Select a ride",
       "area": "Home",
       "hit_screens": [
-        "ride_destination_search_results",
-        "ride_service_selection"
+        "help_landing",
+        "ride_destination_search_results"
       ]
     }
   ],
   "orphaned_screens": [],
   "lost_coverage_edges": [
     {
-      "from": "ride_service_selection",
-      "to": "ride_matching_status",
-      "action": "Device action: tap"
+      "from": "rides_home_personalized_dashboard",
+      "to": "account_profile_hub",
+      "action": "the 'Account' tab icon and text at the bottom right of the screen"
+    },
+    {
+      "from": "account_profile_hub",
+      "to": "help_landing",
+      "action": "the row labeled 'Help' with a question mark icon to its left"
+    },
+    {
+      "from": "rides_home_personalized_dashboard",
+      "to": "account_profile_hub",
+      "action": "the 'Account' tab with a person icon at the bottom right"
+    },
+    {
+      "from": "rides_home_personalized_dashboard",
+      "to": "account_profile_hub",
+      "action": "the 'Account' icon and text in the bottom navigation bar"
+    },
+    {
+      "from": "rides_home_personalized_dashboard",
+      "to": "account_profile_hub",
+      "action": "the 'Account' tab icon with a person silhouette at the bottom right"
+    },
+    {
+      "from": "rides_home_personalized_dashboard",
+      "to": "account_profile_hub",
+      "action": "the 'Account' tab with a person icon and the text 'Account'"
+    },
+    {
+      "from": "support_ai_chat",
+      "to": "help_landing",
+      "action": "the white left-pointing arrow icon inside a black circular button in the top left corner"
+    },
+    {
+      "from": "delivery_checkout_confirmation",
+      "to": "order_status_tracking",
+      "action": "the green button at the bottom containing the text 'Place order' and '$26.14'"
+    },
+    {
+      "from": "activity_history",
+      "to": "ride_trip_receipt",
+      "action": "the trip card with 'JFK Airport - Terminal 4' and '$48.70'"
+    },
+    {
+      "from": "activity_history",
+      "to": "ride_trip_receipt",
+      "action": "the trip entry with 'JFK Airport - Terminal 4' and '$48.70'"
     },
     {
       "from": "ride_service_selection",
-      "to": "ride_matching_status",
-      "action": "the black button at the bottom with white 'Confirm UberX' text"
+      "to": "ride_en_route_tracking",
+      "action": "the black rectangular button with white 'Confirm UberX' text"
+    },
+    {
+      "from": "account_settings",
+      "to": "account_settings_language_picker",
+      "action": "the row labeled 'App language' with 'English' and a right chevron"
+    },
+    {
+      "from": "account_settings",
+      "to": "notification_preferences",
+      "action": "the 'Notification preferences' row at the bottom of the screen"
+    },
+    {
+      "from": "contact_support_form",
+      "to": "help_landing",
+      "action": "the left-pointing arrow icon in the top-left circle"
+    },
+    {
+      "from": "delivery_restaurant_listing",
+      "to": "delivery_restaurant_menu",
+      "action": "the restaurant card containing the text 'Joe's Pizza' and a picture of a pizza"
+    },
+    {
+      "from": "car_rental_checkout",
+      "to": "car_rental_checkout_confirmation",
+      "action": "Scroll down to the bottom of the Confirm rental screen."
     },
     {
       "from": "delivery_home_feed",
@@ -164,14 +340,59 @@
       "action": "Device action: tap"
     },
     {
-      "from": "ride_matching_status",
-      "to": "rides_home_personalized_dashboard",
-      "action": "Device action: tap"
+      "from": "account_profile_hub",
+      "to": "account_settings",
+      "action": "the 'Settings' row with a gear icon on the left and a chevron on the right"
+    },
+    {
+      "from": "account_profile_hub",
+      "to": "account_settings",
+      "action": "the row labeled 'Settings' with a gear icon on its left"
+    },
+    {
+      "from": "account_profile_hub",
+      "to": "account_settings",
+      "action": "the row with a gear icon and the text 'Settings'"
+    },
+    {
+      "from": "account_profile_hub",
+      "to": "saved_places_list",
+      "action": "the 'Saved places' row with a bookmark icon on the left and a right chevron on the right"
+    },
+    {
+      "from": "account_profile_hub",
+      "to": "promotions_list",
+      "action": "the 'Promotions' list item with a tag icon on its left and a chevron on its right"
+    },
+    {
+      "from": "account_profile_hub",
+      "to": "promotions_list",
+      "action": "the 'Promotions' row with a black tag icon"
+    },
+    {
+      "from": "account_settings_language_picker",
+      "to": "account_settings",
+      "action": "the left-pointing arrow icon in the top-left corner"
+    },
+    {
+      "from": "delivery_cart",
+      "to": "delivery_checkout_confirmation",
+      "action": "the green rounded rectangle button with 'Go to checkout' and '$26.14' text"
+    },
+    {
+      "from": "notification_preferences",
+      "to": "account_settings",
+      "action": "the left-pointing arrow icon in the top-left corner"
+    },
+    {
+      "from": "privacy_checkup_location_step",
+      "to": "privacy_checkup_ad_personalization_step",
+      "action": "the black rounded rectangular button with white 'Continue' text"
     },
     {
       "from": "ride_matching_status",
-      "to": "ride_en_route_tracking",
-      "action": "Waiting for the 'Finding your driver' process to complete and transition to the 'Driver Matched' screen where 'Start Trip' will be available."
+      "to": "rides_home_personalized_dashboard",
+      "action": "Device action: tap"
     },
     {
       "from": "shops_home_feed",
@@ -179,9 +400,39 @@
       "action": "Device action: tap"
     },
     {
+      "from": "shops_home_feed",
+      "to": "shops_storefront_grocery",
+      "action": "the 'Whole Foods Market' store row with a star rating of 4.8 and an ETA of 25 min"
+    },
+    {
       "from": "help_landing",
       "to": "rides_home_personalized_dashboard",
       "action": "the left-pointing arrow icon in the top-left corner"
+    },
+    {
+      "from": "help_landing",
+      "to": "support_ai_chat",
+      "action": "the light grey rounded rectangle banner containing the text 'Chat with assistant' and 'Get instant answers from Uber's AI helper.'"
+    },
+    {
+      "from": "help_landing",
+      "to": "contact_support_form",
+      "action": "the black card at the bottom containing the text 'Contact support'"
+    },
+    {
+      "from": "ride_destination_search_results",
+      "to": "ride_service_selection",
+      "action": "the 'Central Park' row with 'Central Park, New York, NY' text below it"
+    },
+    {
+      "from": "ride_destination_search_results",
+      "to": "ride_service_selection",
+      "action": "the list item with 'Joe's Coffee' and '514 Columbus Ave, New York, NY'"
+    },
+    {
+      "from": "rides_home_personalized_dashboard",
+      "to": "ride_destination_search_results",
+      "action": "the search bar with 'Where to?' placeholder text"
     }
   ]
 }

@@ -39,13 +39,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # ── OPTIONAL prior step ────────────────────────────────────────────────
-      # Build the PR app, upload it to Revyl tagged with the PR sha, then kick
-      # off an Atlas exploration on that build. Exploration is async/upstream, so
-      # we DON'T block on it here — the atlas-diff step below waits for the map
-      # via `wait-for-map`. Shown commented so the dependency is clear.
+      # ── OPTIONAL prior step: get the PR build into Atlas ───────────────────
+      # Build the PR app, upload it to Revyl tagged with the PR sha, then make
+      # Atlas observe it. The atlas-diff step below does NOT race this — it waits
+      # for the map via `wait-for-map`. Shown commented so the dependency is clear.
       #
-      # - name: Build, upload to Revyl, and explore the PR build
+      # - name: Build, upload, and map the PR build
       #   env:
       #     REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
       #   run: |
@@ -53,15 +52,22 @@ jobs:
       #     # (a) Build the app artifact (adjust for your stack):
       #     #     eas build --platform ios --profile preview --local --output build.zip
       #     #     # or: xcodebuild ... && zip -r build.zip MyApp.app
-      #     # (b) Upload it to Revyl, tagged with the PR head sha so the diff's
-      #     #     `head: commit:<sha>` can resolve it:
+      #     # (b) Upload it, tagged with the PR head sha so `head: commit:<sha>` resolves it:
       #     revyl build upload --app "MyApp" --app build.zip --commit "${{ github.event.pull_request.head.sha }}"
-      #     # (c) Trigger an Atlas exploration of the just-uploaded build.
-      #     #     TODO: exploration is an upstream / out-of-band step — there is
-      #     #     no `revyl` CLI command for it yet. Replace the line below with
-      #     #     however your pipeline kicks one off (API call, webhook, etc.):
-      #     #   curl -fsSL -X POST "$REVYL_EXPLORE_WEBHOOK" -d "commit=${{ github.event.pull_request.head.sha }}"
-      #     echo "TODO: trigger Atlas exploration for ${{ github.event.pull_request.head.sha }}"
+      #     # (c) Make Atlas observe the build. Two options:
+      #     #
+      #     #   FULL detection (incl. net-new UNTESTED screens) — a full Atlas
+      #     #   exploration of the build. This is the upstream/app-explorer path;
+      #     #   there is no `revyl` CLI command for it, so trigger however your
+      #     #   pipeline does (API/webhook), e.g.:
+      #     #     curl -fsSL -X POST "$REVYL_EXPLORE_WEBHOOK" -d "commit=${{ github.event.pull_request.head.sha }}"
+      #     #
+      #     #   LIGHTER feeder — run your existing test suite against the build.
+      #     #   Test reports feed Atlas, so this maps the screens your tests cover
+      #     #   (great for changed/removed/coverage-drift). It will NOT surface
+      #     #   net-new screens your tests don't reach, so "now untested" needs the
+      #     #   full exploration above.
+      #     revyl workflow run "smoke" --build --ios-app "MyApp" --ios-build "${{ github.event.pull_request.head.sha }}"
       # ───────────────────────────────────────────────────────────────────────
 
       # If you publish atlas-pr-diff as its own repo, reference the action by tag:
