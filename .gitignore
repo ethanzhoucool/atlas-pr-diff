@@ -3,3 +3,6 @@ __pycache__/
 .DS_Store
 /tmp/
 *.snapshot.local.json
+dist/
+build/
+*.egg-info/

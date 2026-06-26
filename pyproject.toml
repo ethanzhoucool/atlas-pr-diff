@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "atlas-pr-diff"
+dynamic = ["version"]
+description = "Diff a mobile app's Revyl Atlas map between two builds for PR review."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [
+  { name = "Ethan Zhou" },
+  { name = "Revyl" },
+]
+keywords = ["revyl", "atlas", "mobile testing", "ci", "pull-request"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Software Development :: Quality Assurance",
+  "Topic :: Software Development :: Testing",
+]
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pyyaml"]
+
+[project.urls]
+Homepage = "https://github.com/ethanzhoucool/atlas-pr-diff"
+Repository = "https://github.com/ethanzhoucool/atlas-pr-diff"
+
+[project.scripts]
+atlas-diff = "atlas_diff.cli:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "atlas_diff.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["atlas_diff*"]

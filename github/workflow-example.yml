@@ -7,10 +7,11 @@
 # ──────────────────────────────────────────────────────────────────────────────
 # IMPORTANT PRECONDITION
 # A build only has Atlas data AFTER an *exploration* has run against it. The PR
-# (head) build must already be uploaded to Revyl AND Atlas-explored before this
-# job runs — otherwise the diff reports "Atlas data missing" and the check is a
-# NEUTRAL (non-blocking) reminder to explore the build first. There is no CLI to
-# trigger exploration; it's an upstream step in your build/upload pipeline.
+# (head) build must already be uploaded to Revyl AND Atlas-explored before the
+# diff is meaningful. Exploration runs upstream and takes a while, so instead of
+# racing it, the action waits: `wait-for-map: 'true'` polls until the head
+# build's map exists (up to `wait-timeout` seconds) before diffing — no more
+# "Atlas data missing" on a freshly-uploaded build.
 # ──────────────────────────────────────────────────────────────────────────────
 
 name: Atlas map diff
@@ -39,17 +40,28 @@ jobs:
         uses: actions/checkout@v4
 
       # ── OPTIONAL prior step ────────────────────────────────────────────────
-      # Your pipeline must have uploaded the PR build to Revyl and run an Atlas
-      # exploration on it before the diff. That typically happens in a separate
-      # build job; shown here only as a placeholder so the dependency is clear.
+      # Build the PR app, upload it to Revyl tagged with the PR sha, then kick
+      # off an Atlas exploration on that build. Exploration is async/upstream, so
+      # we DON'T block on it here — the atlas-diff step below waits for the map
+      # via `wait-for-map`. Shown commented so the dependency is clear.
       #
       # - name: Build, upload to Revyl, and explore the PR build
-      #   run: |
-      #     # e.g. eas build / xcodebuild ... then:
-      #     #   revyl build upload --app "MyApp" --app build.zip
-      #     #   <trigger your Atlas exploration on the new build>
       #   env:
       #     REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
+      #   run: |
+      #     set -euo pipefail
+      #     # (a) Build the app artifact (adjust for your stack):
+      #     #     eas build --platform ios --profile preview --local --output build.zip
+      #     #     # or: xcodebuild ... && zip -r build.zip MyApp.app
+      #     # (b) Upload it to Revyl, tagged with the PR head sha so the diff's
+      #     #     `head: commit:<sha>` can resolve it:
+      #     revyl build upload --app "MyApp" --app build.zip --commit "${{ github.event.pull_request.head.sha }}"
+      #     # (c) Trigger an Atlas exploration of the just-uploaded build.
+      #     #     TODO: exploration is an upstream / out-of-band step — there is
+      #     #     no `revyl` CLI command for it yet. Replace the line below with
+      #     #     however your pipeline kicks one off (API call, webhook, etc.):
+      #     #   curl -fsSL -X POST "$REVYL_EXPLORE_WEBHOOK" -d "commit=${{ github.event.pull_request.head.sha }}"
+      #     echo "TODO: trigger Atlas exploration for ${{ github.event.pull_request.head.sha }}"
       # ───────────────────────────────────────────────────────────────────────
 
       # If you publish atlas-pr-diff as its own repo, reference the action by tag:
@@ -73,6 +85,13 @@ jobs:
           base: "branch:main"
           # head defaults to the PR head commit (commit:<sha>); usually leave it.
           fail-on: "untested"                # untested | changes | none
+          # Wait for the PR build's Atlas map before diffing (handles the
+          # exploration lag from the build/upload step above).
+          wait-for-map: 'true'
+          # wait-timeout: '300'              # max seconds to wait for the map
+          # Download new/changed screen images and upload them as the
+          # 'atlas-screenshots' artifact for visual review.
+          # upload-screenshots: 'true'
           # title: "Atlas map diff"
           # limit: "500"
           # comment: "true"
@@ -98,4 +117,6 @@ jobs:
 #           revyl-api-key: ${{ secrets.REVYL_API_KEY }}
 #           base: "atlas-baseline.json"     # deterministic baseline in the repo
 #           fail-on: "untested"
+#           wait-for-map: 'true'            # still wait for the PR build's map
+#           # upload-screenshots: 'true'
 # ──────────────────────────────────────────────────────────────────────────────

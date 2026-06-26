@@ -55,6 +55,24 @@ inputs:
     description: "Override the revyl CLI install script URL."
     required: false
     default: "https://install.revyl.ai"
+  wait-for-map:
+    description: >-
+      Poll until the head (PR) build has been Atlas-explored before diffing
+      ('true'/'false'). Solves exploration lag: the build is uploaded and an
+      exploration is kicked off upstream, and the diff waits for the map instead
+      of failing with "Atlas data missing".
+    required: false
+    default: "true"
+  wait-timeout:
+    description: "Max seconds to wait for the head build's map (when wait-for-map='true')."
+    required: false
+    default: "300"
+  upload-screenshots:
+    description: >-
+      Download new/changed screen images and upload them as the
+      'atlas-screenshots' CI artifact for visual review ('true'/'false').
+    required: false
+    default: "false"
 
 outputs:
   verdict:
@@ -90,6 +108,11 @@ runs:
       env:
         REVYL_API_KEY: ${{ inputs.revyl-api-key }}
       run: |
+        # Build the optional (v0.2.0) flag list in bash; composite run: is bash.
+        extra=()
+        [ "${{ inputs.wait-for-map }}" = "true" ] && extra+=(--wait-for-map --wait-timeout "${{ inputs.wait-timeout }}")
+        [ "${{ inputs.upload-screenshots }}" = "true" ] && extra+=(--screenshot-dir "$RUNNER_TEMP/atlas-shots")
+
         # Run the diff WITHOUT aborting the job on a non-zero exit; we decide
         # pass/fail ourselves in the final step (after posting the report).
         set +e
@@ -101,7 +124,8 @@ runs:
           --limit "${{ inputs.limit }}" \
           --fail-on "${{ inputs.fail-on }}" \
           --md "$RUNNER_TEMP/atlas-report.md" \
-          --json-out "$RUNNER_TEMP/atlas-result.json"
+          --json-out "$RUNNER_TEMP/atlas-result.json" \
+          "${extra[@]}"
         code=$?
         set -e
         echo "exit_code=$code" >> "$GITHUB_OUTPUT"
@@ -118,6 +142,14 @@ runs:
         if [ "$code" -eq 3 ]; then
           echo "::error::revyl CLI error (auth or build-not-found). Check REVYL_API_KEY and that the build exists."
         fi
+
+    - name: Upload Atlas screenshots
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: atlas-screenshots
+        path: ${{ runner.temp }}/atlas-shots
+        if-no-files-found: ignore
 
     - name: Post sticky comment + check run
       if: always()

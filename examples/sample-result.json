@@ -22,62 +22,72 @@
       "name": "trip_receipt_itemized",
       "area": "Account settings",
       "kind": "detail",
-      "description": "Display a detailed financial breakdown of a completed trip fare, including taxes, fees, and payment method used."
+      "description": "Display a detailed financial breakdown of a completed trip fare, including taxes, fees, and payment method used.",
+      "viewer_url": "https://app.revyl.ai/apps/3ccf53c0-314a-498a-b9c8-0b7bd173c57f/atlas?focus=screen&entityId=6c93ac9c-9252-4ff6-b81d-ac61369aa536"
     },
     {
       "name": "uber_one_benefits_list",
       "area": "Account settings",
       "kind": "list",
-      "description": "Display a comprehensive list of all membership benefits categorized by service type like Eats, Rides, and Grocery."
+      "description": "Display a comprehensive list of all membership benefits categorized by service type like Eats, Rides, and Grocery.",
+      "viewer_url": "https://app.revyl.ai/apps/3ccf53c0-314a-498a-b9c8-0b7bd173c57f/atlas?focus=screen&entityId=c722ecc0-c7d1-445d-9d16-5d7145b5697f"
     },
     {
       "name": "uber_one_checkout",
       "area": "Account settings",
       "kind": "checkout",
-      "description": "Review and confirm a subscription membership plan and payment method to start a free trial or paid membership."
+      "description": "Review and confirm a subscription membership plan and payment method to start a free trial or paid membership.",
+      "viewer_url": "https://app.revyl.ai/apps/3ccf53c0-314a-498a-b9c8-0b7bd173c57f/atlas?focus=screen&entityId=1b3a5a5a-680d-4024-a476-f91bc7135794"
     },
     {
       "name": "uber_one_membership_detail",
       "area": "Account settings",
       "kind": "detail",
-      "description": "Explain the benefits of the Uber One membership and provide an entry point for users to subscribe or start a trial."
+      "description": "Explain the benefits of the Uber One membership and provide an entry point for users to subscribe or start a trial.",
+      "viewer_url": "https://app.revyl.ai/apps/3ccf53c0-314a-498a-b9c8-0b7bd173c57f/atlas?focus=screen&entityId=6ad07ae7-8a07-4e30-bce6-81624bd90430"
     },
     {
       "name": "uber_one_signup_success",
       "area": "Account settings",
       "kind": "onboarding",
-      "description": "Confirm that the user has successfully started their Uber One membership and highlight the active benefits."
+      "description": "Confirm that the user has successfully started their Uber One membership and highlight the active benefits.",
+      "viewer_url": "https://app.revyl.ai/apps/3ccf53c0-314a-498a-b9c8-0b7bd173c57f/atlas?focus=screen&entityId=21e47d5a-fe24-4571-ba81-58ad43a63755"
     },
     {
       "name": "package_delivery_checkout_review",
       "area": "Commerce",
       "kind": "checkout",
-      "description": "Review package details, pickup/drop-off locations, and estimated cost before confirming the delivery request."
+      "description": "Review package details, pickup/drop-off locations, and estimated cost before confirming the delivery request.",
+      "viewer_url": "https://app.revyl.ai/apps/3ccf53c0-314a-498a-b9c8-0b7bd173c57f/atlas?focus=screen&entityId=5e11dec4-633b-4468-b70b-db68f025a644"
     },
     {
       "name": "package_pickup_details_form",
       "area": "Commerce",
       "kind": "form",
-      "description": "Capture the pickup address, sender contact information, and specific driver instructions for a package delivery request."
+      "description": "Capture the pickup address, sender contact information, and specific driver instructions for a package delivery request.",
+      "viewer_url": "https://app.revyl.ai/apps/3ccf53c0-314a-498a-b9c8-0b7bd173c57f/atlas?focus=screen&entityId=2b1078c0-831d-4e19-9f97-0acbddb11de4"
     },
     {
       "name": "airline_selection_list",
       "area": "Home",
       "kind": "list",
-      "description": "Allows users to select their airline to help drivers identify the correct terminal for airport drop-offs or pickups."
+      "description": "Allows users to select their airline to help drivers identify the correct terminal for airport drop-offs or pickups.",
+      "viewer_url": "https://app.revyl.ai/apps/3ccf53c0-314a-498a-b9c8-0b7bd173c57f/atlas?focus=screen&entityId=a2ae31f4-2b2a-4b20-946d-07155470134d"
     },
     {
       "name": "ride_receipt_rating",
       "area": "Home",
       "kind": "checkout",
-      "description": "To provide a trip summary including cost and distance, and to allow the user to rate and tip the driver after arrival."
+      "description": "To provide a trip summary including cost and distance, and to allow the user to rate and tip the driver after arrival.",
+      "viewer_url": "https://app.revyl.ai/apps/3ccf53c0-314a-498a-b9c8-0b7bd173c57f/atlas?focus=screen&entityId=0d8aa552-e396-4096-906a-145537874a77"
     }
   ],
   "removed": [
     {
       "name": "ride_matching_status",
       "area": "Home",
-      "kind": "loading"
+      "kind": "loading",
+      "viewer_url": "https://app.revyl.ai/apps/3ccf53c0-314a-498a-b9c8-0b7bd173c57f/atlas?focus=screen&entityId=778e0e09-3f18-4088-b24c-0a3d07ee77f2"
     }
   ],
   "changed": [
@@ -86,35 +96,40 @@
       "area": "Account settings",
       "reasons": [
         "now navigates to new screen `uber_one_membership_detail`"
-      ]
+      ],
+      "viewer_url": "https://app.revyl.ai/apps/3ccf53c0-314a-498a-b9c8-0b7bd173c57f/atlas?focus=screen&entityId=24caf738-ca8f-4c52-8d52-f2435ca940f2"
     },
     {
       "name": "package_details_entry",
       "area": "Commerce",
       "reasons": [
         "now navigates to new screen `package_pickup_details_form`"
-      ]
+      ],
+      "viewer_url": "https://app.revyl.ai/apps/3ccf53c0-314a-498a-b9c8-0b7bd173c57f/atlas?focus=screen&entityId=0bd516d7-b7f0-4d4e-8538-3d8200adc2d3"
     },
     {
       "name": "ride_destination_search_results",
       "area": "Home",
       "reasons": [
         "now navigates to new screen `airline_selection_list`"
-      ]
+      ],
+      "viewer_url": "https://app.revyl.ai/apps/3ccf53c0-314a-498a-b9c8-0b7bd173c57f/atlas?focus=screen&entityId=00ea4bb5-7b7f-4907-b8e0-d0a277bed1e6"
     },
     {
       "name": "ride_en_route_tracking",
       "area": "Home",
       "reasons": [
         "now navigates to new screen `ride_receipt_rating`"
-      ]
+      ],
+      "viewer_url": "https://app.revyl.ai/apps/3ccf53c0-314a-498a-b9c8-0b7bd173c57f/atlas?focus=screen&entityId=02f6f04b-fc75-4648-aa0d-cd9a95e17ea5"
     },
     {
       "name": "ride_service_selection",
       "area": "Home",
       "reasons": [
         "no longer navigates to removed screen `ride_matching_status`"
-      ]
+      ],
+      "viewer_url": "https://app.revyl.ai/apps/3ccf53c0-314a-498a-b9c8-0b7bd173c57f/atlas?focus=screen&entityId=0f5c504e-1a93-440f-bbff-42f3a8cb7f07"
     }
   ],
   "renamed": [],
