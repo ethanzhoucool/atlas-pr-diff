@@ -11,11 +11,18 @@ import json
 import os
 import shutil
 import subprocess
+import time
 from typing import Any
 
 
 class RevylError(RuntimeError):
     pass
+
+
+# substrings that mark a transient failure worth retrying
+_TRANSIENT = ("timed out", "timeout", "connection reset", "temporarily",
+              "502", "503", "504", "gateway", "too many requests", "rate limit",
+              "eof", "broken pipe", "i/o timeout", "tls handshake")
 
 
 def _bin() -> str:
@@ -33,20 +40,28 @@ def _bin() -> str:
     )
 
 
-def _run(args: list[str], *, timeout: int = 120) -> str:
+def _run(args: list[str], *, timeout: int = 120, retries: int = 2) -> str:
+    """Run `revyl <args>`, retrying transient failures with backoff."""
     cmd = [_bin(), *args]
-    try:
-        proc = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=timeout
-        )
-    except subprocess.TimeoutExpired as exc:
-        raise RevylError(f"`revyl {' '.join(args)}` timed out after {timeout}s") from exc
-    if proc.returncode != 0:
-        raise RevylError(
-            f"`revyl {' '.join(args)}` failed (exit {proc.returncode}):\n"
-            f"{proc.stderr.strip() or proc.stdout.strip()}"
-        )
-    return proc.stdout
+    last = ""
+    for attempt in range(retries + 1):
+        try:
+            proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        except subprocess.TimeoutExpired:
+            last = f"`revyl {' '.join(args)}` timed out after {timeout}s"
+            if attempt < retries:
+                time.sleep(1.5 * (attempt + 1))
+                continue
+            raise RevylError(last)
+        if proc.returncode == 0:
+            return proc.stdout
+        err = (proc.stderr.strip() or proc.stdout.strip())
+        last = (f"`revyl {' '.join(args)}` failed (exit {proc.returncode}):\n{err}")
+        if attempt < retries and any(t in err.lower() for t in _TRANSIENT):
+            time.sleep(1.5 * (attempt + 1))
+            continue
+        raise RevylError(last)
+    raise RevylError(last)
 
 
 def _run_json(args: list[str], *, timeout: int = 120) -> Any:
@@ -70,22 +85,68 @@ def _run_json(args: list[str], *, timeout: int = 120) -> Any:
 
 
 def atlas_graph(app: str, build: str = "all", *, limit: int = 500,
-                surface_scope: str = "app", timeout: int = 180) -> dict:
+                surface_scope: str = "app", timeout: int = 180,
+                screenshot_dir: str | None = None) -> dict:
     """Return the exact Atlas graph payload for one app at one build.
 
     `build` accepts a build id, a build version, "latest", or "all".
+    If `screenshot_dir` is set, the CLI downloads each screen's screenshot
+    there and adds a `local_screenshot_path` to every node.
     """
-    return _run_json(
-        [
-            "atlas", "graph",
-            "--app", app,
-            "--build", build,
-            "--json",
-            "--limit", str(limit),
-            "--surface-scope", surface_scope,
-        ],
-        timeout=timeout,
-    )
+    args = [
+        "atlas", "graph",
+        "--app", app,
+        "--build", build,
+        "--json",
+        "--limit", str(limit),
+        "--surface-scope", surface_scope,
+    ]
+    if screenshot_dir:
+        os.makedirs(screenshot_dir, exist_ok=True)
+        args += ["--screenshot-dir", screenshot_dir]
+    return _run_json(args, timeout=timeout)
+
+
+def ping() -> dict:
+    """Check connectivity + credentials. Returns {ok, detail}.
+
+    `revyl ping` prints to stderr and signals failure via exit code, so we
+    trust the exit code first and fall back to scanning the combined output.
+    """
+    try:
+        proc = subprocess.run([_bin(), "ping"], capture_output=True, text=True, timeout=30)
+    except (subprocess.TimeoutExpired, RevylError) as exc:
+        return {"ok": False, "detail": str(exc)}
+    combined = (proc.stdout + proc.stderr).strip()
+    low = combined.lower()
+    ok = proc.returncode == 0 and "invalid" not in low and "fail" not in low
+    if "api key valid" in low or "credentials" in low and "valid" in low:
+        ok = ok or proc.returncode == 0
+    return {"ok": ok, "detail": combined}
+
+
+def map_node_count(app: str, build: str, *, limit: int = 500) -> int:
+    """How many screens Atlas has mapped for a build (0 = not explored yet)."""
+    try:
+        payload = atlas_graph(app, build, limit=limit)
+    except RevylError:
+        return 0
+    return len(payload.get("nodes") or [])
+
+
+def wait_for_map(app: str, build: str, *, timeout: int = 0, interval: int = 20,
+                 limit: int = 500, log=lambda *_: None) -> int:
+    """Poll until the build has a mapped Atlas (>0 screens) or `timeout` secs
+    elapse. timeout<=0 means a single check. Returns the final node count."""
+    deadline = time.monotonic() + timeout
+    while True:
+        n = map_node_count(app, build, limit=limit)
+        if n > 0 or timeout <= 0:
+            return n
+        if time.monotonic() >= deadline:
+            return n
+        log(f"head build not mapped yet (0 screens); retrying in {interval}s...")
+        time.sleep(interval)
 
 
 def list_builds(app: str, *, branch: str | None = None) -> list[dict]:

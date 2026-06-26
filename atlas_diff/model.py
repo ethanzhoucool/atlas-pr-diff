@@ -16,6 +16,9 @@ def _norm_text(s: str | None) -> str:
     return " ".join((s or "").split()).strip().lower()
 
 
+ATLAS_VIEWER = "https://app.revyl.ai/apps/{app}/atlas?focus=screen&entityId={sid}"
+
+
 @dataclass
 class Screen:
     id: str
@@ -29,6 +32,8 @@ class Screen:
     is_terminal: bool
     primary_actions: list[str]
     screenshot_key: str | None
+    viewer_url: str | None = None          # durable deep-link into the Atlas viewer
+    local_screenshot_path: str | None = None
     raw: dict = field(default_factory=dict, repr=False)
 
     @property
@@ -116,6 +121,47 @@ class Snapshot:
         sc = self.screens.get(screen_id)
         return sc.label if sc else screen_id[:8]
 
+    def viewer_of(self, screen_id: str) -> str | None:
+        sc = self.screens.get(screen_id)
+        return sc.viewer_url if sc else None
+
+    def entry_points(self) -> list[str]:
+        eps = [s.id for s in self.screens.values() if s.is_entry_point]
+        if eps:
+            return eps
+        targeted = {e.target for e in self.edges}
+        roots = [sid for sid in self.screens if sid not in targeted]
+        return roots or list(self.screens)[:1]
+
+    def shortest_path(self, target: str, sources: list[str] | None = None) -> list[str]:
+        """BFS shortest path (list of screen ids) from any entry point to
+        `target`. Empty if unreachable."""
+        if target not in self.screens:
+            return []
+        sources = sources or self.entry_points()
+        if target in sources:
+            return [target]
+        adj: dict[str, list[str]] = {}
+        for e in self.edges:
+            adj.setdefault(e.source, []).append(e.target)
+        prev: dict[str, str] = {}
+        seen = set(sources)
+        queue = list(sources)
+        while queue:
+            cur = queue.pop(0)
+            for nxt in adj.get(cur, []):
+                if nxt in seen:
+                    continue
+                seen.add(nxt)
+                prev[nxt] = cur
+                if nxt == target:
+                    path = [target]
+                    while path[-1] in prev:
+                        path.append(prev[path[-1]])
+                    return list(reversed(path))
+                queue.append(nxt)
+        return []
+
     # --- serialization (for cached baselines) --------------------------
     def to_dict(self) -> dict:
         return {
@@ -151,8 +197,11 @@ class Snapshot:
             json.dump(self.to_dict(), fh, indent=2)
 
 
-def _screen_from_node(n: dict) -> Screen:
+def _screen_from_node(n: dict, app_id: str = "") -> Screen:
     sid = n.get("id") or n.get("canonical_entity_id") or n.get("semantic_root_entity_id")
+    viewer = n.get("viewer_url")
+    if not viewer and app_id and sid:
+        viewer = ATLAS_VIEWER.format(app=app_id, sid=sid)
     return Screen(
         id=sid,
         name=n.get("semantic_name") or n.get("display_name") or n.get("label") or "",
@@ -165,6 +214,8 @@ def _screen_from_node(n: dict) -> Screen:
         is_terminal=bool(n.get("is_terminal")),
         primary_actions=list(n.get("primary_actions") or []),
         screenshot_key=n.get("screenshot_s3_key"),
+        viewer_url=viewer,
+        local_screenshot_path=n.get("local_screenshot_path"),
         raw=n,
     )
 
@@ -189,9 +240,10 @@ def from_graph_payload(payload: dict, *, build_version: str | None = None,
     raw_flows = payload.get("flows") or []
     proj = payload.get("projection") or {}
 
+    app_id = payload.get("app_id") or ""
     screens: dict[str, Screen] = {}
     for n in nodes:
-        sc = _screen_from_node(n)
+        sc = _screen_from_node(n, app_id)
         if sc.id:
             screens[sc.id] = sc
 

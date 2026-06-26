@@ -293,10 +293,13 @@ def diff(base: Snapshot, head: Snapshot, *, min_support: int = DEFAULT_MIN_SUPPO
         incoming = head.in_edges(sid)
         out = head.out_edges(sid)
         if not any(e.tested for e in incoming) and not any(e.tested for e in out):
+            path_ids = head.shortest_path(sid)
             res.untested_screens.append({
                 "id": sid, "name": sc.label, "product_area": sc.product_area,
                 "status": "new" if sid in added_ids else "changed",
                 "incoming_edges": len(incoming), "outgoing_edges": len(out),
+                "reach_path": [head.name_of(p) for p in path_ids],
+                "viewer_url": sc.viewer_url,
             })
 
     # --- lost coverage: tested in base, gone/untested in head ----------
