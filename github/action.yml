@@ -1,0 +1,154 @@
+name: "Atlas map diff"
+description: >-
+  Diff a mobile app's Revyl Atlas map between two builds and surface the impact
+  on the PR (new/changed/removed screens, affected flows, now-untested screens)
+  as a sticky comment and a Check Run.
+author: "atlas-pr-diff"
+
+branding:
+  icon: "git-pull-request"
+  color: "purple"
+
+inputs:
+  app:
+    description: "Revyl app name or id to diff."
+    required: true
+  base:
+    description: >-
+      Baseline ref. Forms: a build version | latest | all | commit:<sha> |
+      branch:<name> | a path to a committed <file>.json snapshot.
+      Default diffs against the latest mapped build on main. For a DETERMINISTIC
+      baseline, commit a snapshot (e.g. `atlas-baseline.json`, produced by
+      `./atlas-diff snapshot ...`) and pass that path here instead.
+    required: false
+    default: "branch:main"
+  head:
+    description: "Head (PR) ref. Defaults to the PR head commit."
+    required: false
+    default: "commit:${{ github.event.pull_request.head.sha }}"
+  fail-on:
+    description: >-
+      When to fail the PR check: 'untested' (default — new/changed screens with
+      no test coverage), 'changes' (any map change), or 'none' (never fail).
+    required: false
+    default: "untested"
+  revyl-api-key:
+    description: "Revyl API key (mapped to REVYL_API_KEY for the revyl CLI)."
+    required: true
+  title:
+    description: "Report title shown in the comment / check run."
+    required: false
+    default: "Atlas map diff"
+  limit:
+    description: "Max screens to fetch per build."
+    required: false
+    default: "500"
+  comment:
+    description: "Post/update the sticky PR comment ('true'/'false')."
+    required: false
+    default: "true"
+  check-run:
+    description: "Create the 'Atlas map diff' Check Run ('true'/'false')."
+    required: false
+    default: "true"
+  revyl-install-url:
+    description: "Override the revyl CLI install script URL."
+    required: false
+    default: "https://install.revyl.ai"
+
+outputs:
+  verdict:
+    description: "The diff verdict (e.g. 'Map changed — review impact')."
+    value: ${{ steps.diff.outputs.verdict }}
+  exit-code:
+    description: "Raw exit code from `atlas-diff diff` (0 pass, 1 fail, 3 revyl error)."
+    value: ${{ steps.diff.outputs.exit_code }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install revyl CLI
+      shell: bash
+      env:
+        REVYL_INSTALL_URL: ${{ inputs.revyl-install-url }}
+      run: |
+        set -euo pipefail
+        if command -v revyl >/dev/null 2>&1; then
+          echo "revyl CLI already on PATH: $(command -v revyl)"
+        elif [ -x "$HOME/.revyl/bin/revyl" ]; then
+          echo "revyl CLI already installed at $HOME/.revyl/bin/revyl"
+        else
+          echo "Installing revyl CLI from $REVYL_INSTALL_URL"
+          curl -fsSL "$REVYL_INSTALL_URL" | bash
+        fi
+        # Make sure the default install location is on PATH for later steps.
+        echo "$HOME/.revyl/bin" >> "$GITHUB_PATH"
+
+    - name: Run atlas-diff
+      id: diff
+      shell: bash
+      env:
+        REVYL_API_KEY: ${{ inputs.revyl-api-key }}
+      run: |
+        # Run the diff WITHOUT aborting the job on a non-zero exit; we decide
+        # pass/fail ourselves in the final step (after posting the report).
+        set +e
+        "${{ github.action_path }}/../atlas-diff" diff \
+          --app "${{ inputs.app }}" \
+          --base "${{ inputs.base }}" \
+          --head "${{ inputs.head }}" \
+          --title "${{ inputs.title }}" \
+          --limit "${{ inputs.limit }}" \
+          --fail-on "${{ inputs.fail-on }}" \
+          --md "$RUNNER_TEMP/atlas-report.md" \
+          --json-out "$RUNNER_TEMP/atlas-result.json"
+        code=$?
+        set -e
+        echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+        echo "Atlas diff exit code: $code"
+
+        # Surface the verdict as a step output (best-effort, single-line python).
+        verdict=""
+        if [ -f "$RUNNER_TEMP/atlas-result.json" ]; then
+          verdict="$(python3 -c 'import json,sys; print((json.load(open(sys.argv[1])).get("verdict","") if True else ""))' "$RUNNER_TEMP/atlas-result.json" 2>/dev/null || true)"
+        fi
+        echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
+
+        # Exit 3 = revyl CLI error (not authed / build not found). Fail loudly.
+        if [ "$code" -eq 3 ]; then
+          echo "::error::revyl CLI error (auth or build-not-found). Check REVYL_API_KEY and that the build exists."
+        fi
+
+    - name: Post sticky comment + check run
+      if: always()
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      run: |
+        args=(--md "$RUNNER_TEMP/atlas-report.md"
+              --json "$RUNNER_TEMP/atlas-result.json"
+              --sha "${{ github.event.pull_request.head.sha }}"
+              --title "${{ inputs.title }}")
+        [ "${{ inputs.comment }}" = "true" ]   || args+=(--no-comment)
+        [ "${{ inputs.check-run }}" = "true" ] || args+=(--no-check-run)
+        # post_check.py never crashes CI: it logs and exits 0 on any hiccup.
+        python3 "${{ github.action_path }}/post_check.py" "${args[@]}"
+
+    - name: Enforce gate
+      if: always()
+      shell: bash
+      run: |
+        code="${{ steps.diff.outputs.exit_code }}"
+        if [ "${{ inputs.fail-on }}" = "none" ]; then
+          echo "fail-on=none — not gating the PR on Atlas changes."
+          exit 0
+        fi
+        if [ "$code" = "3" ]; then
+          echo "::error::revyl CLI error — failing the job."
+          exit 1
+        fi
+        if [ "$code" != "0" ]; then
+          echo "::error::Atlas map diff gate failed (fail-on=${{ inputs.fail-on }})."
+          exit 1
+        fi
+        echo "Atlas map diff gate passed."

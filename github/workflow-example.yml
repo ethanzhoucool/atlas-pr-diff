@@ -1,0 +1,101 @@
+# Copy this file into your app repo as: .github/workflows/atlas-diff.yml
+#
+# It diffs your app's Revyl "Atlas" map between the base build and the PR build,
+# then posts the impact (new/changed/removed screens, affected flows, now-untested
+# screens) as a sticky PR comment + a "Atlas map diff" check run.
+#
+# ──────────────────────────────────────────────────────────────────────────────
+# IMPORTANT PRECONDITION
+# A build only has Atlas data AFTER an *exploration* has run against it. The PR
+# (head) build must already be uploaded to Revyl AND Atlas-explored before this
+# job runs — otherwise the diff reports "Atlas data missing" and the check is a
+# NEUTRAL (non-blocking) reminder to explore the build first. There is no CLI to
+# trigger exploration; it's an upstream step in your build/upload pipeline.
+# ──────────────────────────────────────────────────────────────────────────────
+
+name: Atlas map diff
+
+on:
+  pull_request:
+    # Optionally scope to PRs that touch app code:
+    # paths: ["app/**", "src/**"]
+
+# The action needs to write a PR comment and (optionally) a check run.
+permissions:
+  pull-requests: write
+  checks: write
+  contents: read
+
+# One run per PR; cancel superseded runs.
+concurrency:
+  group: atlas-diff-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  atlas-diff:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── OPTIONAL prior step ────────────────────────────────────────────────
+      # Your pipeline must have uploaded the PR build to Revyl and run an Atlas
+      # exploration on it before the diff. That typically happens in a separate
+      # build job; shown here only as a placeholder so the dependency is clear.
+      #
+      # - name: Build, upload to Revyl, and explore the PR build
+      #   run: |
+      #     # e.g. eas build / xcodebuild ... then:
+      #     #   revyl build upload --app "MyApp" --app build.zip
+      #     #   <trigger your Atlas exploration on the new build>
+      #   env:
+      #     REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
+      # ───────────────────────────────────────────────────────────────────────
+
+      # If you publish atlas-pr-diff as its own repo, reference the action by tag:
+      #   uses: owner/atlas-pr-diff/github@main
+      # The example below assumes the tool is vendored into this repo so we use
+      # the composite action via a local checkout of it.
+
+      - name: Checkout atlas-pr-diff
+        uses: actions/checkout@v4
+        with:
+          repository: owner/atlas-pr-diff
+          path: .atlas-pr-diff
+          # ref: v1            # pin a release for stability
+
+      - name: Atlas map diff
+        uses: ./.atlas-pr-diff/github
+        with:
+          app: "MyApp"                       # Revyl app name or id (required)
+          revyl-api-key: ${{ secrets.REVYL_API_KEY }}
+          # Default baseline: latest mapped build on `main`.
+          base: "branch:main"
+          # head defaults to the PR head commit (commit:<sha>); usually leave it.
+          fail-on: "untested"                # untested | changes | none
+          # title: "Atlas map diff"
+          # limit: "500"
+          # comment: "true"
+          # check-run: "true"
+
+# ──────────────────────────────────────────────────────────────────────────────
+# DETERMINISTIC BASELINE (recommended) — diff against a committed snapshot
+#
+# `branch:main` resolves to whatever build was last mapped on main, which can
+# drift. For reproducible PR checks, commit a snapshot to your repo and diff
+# against the file instead:
+#
+#   1) Generate it once (and refresh it when main's map intentionally changes):
+#        ./atlas-diff snapshot --app MyApp --build branch:main -o atlas-baseline.json
+#        git add atlas-baseline.json && git commit -m "atlas: refresh baseline"
+#
+#   2) Point the action at the committed file:
+#
+#       - name: Atlas map diff (committed baseline)
+#         uses: ./.atlas-pr-diff/github
+#         with:
+#           app: "MyApp"
+#           revyl-api-key: ${{ secrets.REVYL_API_KEY }}
+#           base: "atlas-baseline.json"     # deterministic baseline in the repo
+#           fail-on: "untested"
+# ──────────────────────────────────────────────────────────────────────────────
