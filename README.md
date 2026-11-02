@@ -215,8 +215,8 @@ git add atlas-baseline.json && git commit -m "atlas baseline"
 - **Renamed** — a screen whose only change is its name.
 - **Removed / no longer reached** — screens in base with no match in head.
 - **Flows affected downstream** — named Atlas flows whose route passes through an added/changed/removed screen.
-- **Possibly orphaned** — screens still in the app that lost their only inbound path because the screen that led to them was removed.
-- **Lost test coverage** — edges a test traversed in base but not in head.
+- **Possibly orphaned** — screens still in the app that lost their only inbound path because the screen that led to them was removed (entry points are never orphaned, and a screen's edge to itself is not an inbound path).
+- **Lost test coverage** — screen-to-screen transitions a test traversed in base that no test traverses in head. Atlas can hold several parallel edges for one transition (the same tap described in different words); they count as one transition, so rewording a tested tap is not lost coverage.
 - **Now untested** — new/changed screens that no test reaches (no test-backed in/out edge). This is the headline signal and what the default CI gate fires on. Each untested screen shows the reach-path (entry → … → screen) and a "cover it" hint pointing at `revyl test create`.
 
 Screens are matched first by canonical Atlas id, then leftovers by normalized name + product area (so an id churn does not look like a delete-plus-add).
