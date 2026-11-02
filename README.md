@@ -172,7 +172,7 @@ Other `init` flags: `--dir <path>` (project root, default `.`), `--baseline <pat
 The scaffolded workflow uses the composite Action in [`github/`](github/) (`action.yml` + `post_check.py`); there is also a copy-paste workflow in [`github/workflow-example.yml`](github/workflow-example.yml). On a PR the Action:
 
 - runs `diff` for the PR build,
-- posts/updates one **sticky comment** (found by the `<!-- atlas-pr-diff -->` marker, so reruns edit in place instead of stacking),
+- posts/updates one **sticky comment** (the comment whose first line is the `<!-- atlas-pr-diff -->` marker, so reruns edit in place instead of stacking; a report over GitHub's 65,536-character comment limit is cut at a line boundary and the full report is printed in the job log),
 - sets a **GitHub Check** whose conclusion follows the exit code.
 
 ### Check conclusions
