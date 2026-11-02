@@ -219,7 +219,7 @@ git add atlas-baseline.json && git commit -m "atlas baseline"
 - **Lost test coverage** — edges a test traversed in base but not in head.
 - **Now untested** — new/changed screens that no test reaches (no test-backed in/out edge). This is the headline signal and what the default CI gate fires on. Each untested screen shows the reach-path (entry → … → screen) and a "cover it" hint pointing at `revyl test create`.
 
-Screens are matched first by canonical Atlas id, then leftovers by normalized name + product area (so an id churn does not look like a delete-plus-add).
+Screens are matched first by canonical Atlas id, then leftovers by normalized name + product area (so an id churn does not look like a delete-plus-add). When several screens share a name, each pairs with the same-named screen it most resembles (kind, description, primary actions). Finally, a leftover whose name is unique on both sides and whose kind is unchanged is matched across product areas, so a screen that moved area *and* got a new id shows as changed (`area A → B`). Unnamed screens are only matched by id.
 
 Long sections auto-collapse into `<details>` blocks so a big PR does not produce a wall of text.
 
