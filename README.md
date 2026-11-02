@@ -178,11 +178,11 @@ The scaffolded workflow uses the composite Action in [`github/`](github/) (`acti
 ### Check conclusions
 
 - 🟢 no map changes → success
-- 🟡 map changed → success or failure, depending on `--fail-on`
-- 🔴 new/changed screens are untested → failure under the default gate
-- ⚠️ Atlas data missing → **neutral** (not a failure). The head build has no Atlas map yet; the comment tells you to run an exploration.
+- 🟡 map changed → neutral, or failure under `--fail-on changes`
+- 🔴 new/changed screens are untested → failure under the default gate (and under `changes`); neutral under `--fail-on none`
+- ⚠️ Atlas data missing → **neutral** (not a failure), whatever `--fail-on` says. A build has no Atlas map yet; the comment tells you to run an exploration.
 
-The neutral case matters: a PR is never failed just because its build has not been Atlas-explored yet.
+The Check is `failure` exactly when the gate trips (`diff` exits 1), so the Check and the job always agree. The neutral case matters: a PR is never failed just because its build has not been Atlas-explored yet.
 
 ### Handling exploration lag: `--wait-for-map`
 
@@ -349,11 +349,13 @@ Preflight checks (auth, config, app mapped, baseline freshness). `--app` overrid
 - `changes` — fail on any map change.
 - `none` — never fail.
 
+Missing Atlas data (either build has 0 mapped screens) never trips the gate, under any `--fail-on`.
+
 Codes:
 
-- `0` — passed (or `--fail-on none`).
+- `0` — passed (or `--fail-on none`, or Atlas data missing).
 - `1` — the gate tripped (untested screens, or any change under `--fail-on changes`).
-- `2` — `resolve` found no matching build.
+- `2` — `resolve` found no matching build, or `fail_on` in the config is not one of `untested` / `changes` / `none`.
 - `3` — a `revyl` CLI error (binary missing, auth, bad output).
 
 ## Limitations / known issues

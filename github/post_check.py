@@ -41,6 +41,26 @@ VERDICT_CONCLUSION = {
     "Map changed — review impact": "neutral",
     "No Atlas map changes": "success",
 }
+
+
+def conclusion_for(result: dict) -> str:
+    """Check Run conclusion that agrees with the CI gate (`atlas-diff diff
+    --fail-on`): "failure" exactly when the gate tripped and the job fails.
+
+    A change the gate let through (e.g. untested screens under
+    --fail-on none) is "neutral", never a red X. Results written by an older
+    atlas-diff, which have no "gate" field, fall back to the verdict mapping.
+    """
+    conclusion = VERDICT_CONCLUSION.get(result.get("verdict", ""), "neutral")
+    gate = result.get("gate")
+    if isinstance(gate, dict) and "failed" in gate:
+        if gate["failed"]:
+            return "failure"
+        if conclusion == "failure":
+            return "neutral"
+    return conclusion
+
+
 # Per-verdict one-liner shown in the check run output title.
 VERDICT_TITLE = {
     "Atlas data missing": "No Atlas map on the PR build — run an exploration first",
@@ -239,8 +259,8 @@ def upsert_sticky_comment(repo: str, pr: int, token: str, body: str) -> bool:
 # --------------------------------------------------------------------------- #
 
 def create_check_run(repo: str, sha: str, token: str, verdict: str,
-                     summary_md: str, title: str) -> bool:
-    conclusion = VERDICT_CONCLUSION.get(verdict, "neutral")
+                     summary_md: str, title: str, conclusion: str | None = None) -> bool:
+    conclusion = conclusion or VERDICT_CONCLUSION.get(verdict, "neutral")
     one_liner = VERDICT_TITLE.get(verdict, verdict or "Atlas map diff")
     summary = summary_md[:SUMMARY_LIMIT]
     if len(summary_md) > SUMMARY_LIMIT:
@@ -311,7 +331,8 @@ def main(argv=None) -> int:
 
     if args.check_run:
         if sha:
-            create_check_run(repo, sha, token, verdict, md, args.title)
+            create_check_run(repo, sha, token, verdict, md, args.title,
+                             conclusion=conclusion_for(result))
         else:
             _eprint("atlas-diff: no head sha — skipping check run.")
 
