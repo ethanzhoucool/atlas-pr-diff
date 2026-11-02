@@ -85,6 +85,34 @@ class TestParseFlatYaml(unittest.TestCase):
         out = config._parse_flat_yaml("base: main   # use the trunk branch")
         self.assertEqual(out["base"], "main")
 
+    def test_hash_inside_values_is_kept(self):
+        # YAML only starts a comment at '#' after whitespace, outside quotes
+        out = config._parse_flat_yaml(
+            'title: "Atlas #1 diff"   # quoted, then a real comment\n'
+            "app: My#App\n"
+            "base: 'branch:#hotfix'\n"
+            'empty_with_comment:   # nothing here\n'
+            "fail_on: untested    # untested | changes | none\n"
+            "# whole-line comment: not a key\n"
+            "ignored # stray: colon after a comment\n"
+        )
+        self.assertEqual(out, {
+            "title": "Atlas #1 diff",
+            "app": "My#App",
+            "base": "branch:#hotfix",
+            "empty_with_comment": None,
+            "fail_on": "untested",
+        })
+
+    def test_init_template_round_trips(self):
+        from atlas_diff import cli
+        text = cli._CONFIG_TEMPLATE.format(app="Ubert", baseline="atlas-baseline.json",
+                                           fail_on="untested", min_support=2)
+        out = config._parse_flat_yaml(text)
+        self.assertEqual(out["fail_on"], "untested")
+        self.assertEqual(out["min_support"], 2)
+        self.assertEqual(out["baseline"], "atlas-baseline.json")
+
 
 # --------------------------------------------------------------------------
 # load_config
