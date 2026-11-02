@@ -286,6 +286,7 @@ def diff(base: Snapshot, head: Snapshot, *, min_support: int = DEFAULT_MIN_SUPPO
 
     # --- now-untested: new/changed screens no test reaches -------------
     review_ids = {s.id for s in res.added} | {c.screen_id for c in res.changed}
+    reach = head.shortest_paths(review_ids)        # one BFS for all of them
     for sid in sorted(review_ids):
         sc = head.screens.get(sid)
         if not sc:
@@ -293,7 +294,7 @@ def diff(base: Snapshot, head: Snapshot, *, min_support: int = DEFAULT_MIN_SUPPO
         incoming = head.in_edges(sid)
         out = head.out_edges(sid)
         if not any(e.tested for e in incoming) and not any(e.tested for e in out):
-            path_ids = head.shortest_path(sid)
+            path_ids = reach.get(sid, [])
             res.untested_screens.append({
                 "id": sid, "name": sc.label, "product_area": sc.product_area,
                 "status": "new" if sid in added_ids else "changed",
