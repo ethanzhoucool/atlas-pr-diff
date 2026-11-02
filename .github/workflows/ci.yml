@@ -17,7 +17,10 @@ concurrency:
 jobs:
   test:
     name: test (py${{ matrix.python-version }})
-    runs-on: ubuntu-latest
+    # Pinned (not ubuntu-latest): ubuntu-latest is now 26.04, and
+    # actions/setup-python publishes no Python 3.9 build for it. 24.04 has
+    # every version in the matrix below.
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     strategy:
       fail-fast: false
@@ -25,9 +28,9 @@ jobs:
         # Mirrors requires-python / the classifiers in pyproject.toml.
         python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
 
