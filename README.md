@@ -136,9 +136,9 @@ atlas-diff apps
 - `latest` or `all`
 - `commit:<sha>` or a bare 7–40 char git sha
 - `branch:<name>`
-- a path to a `.json` snapshot file (a committed baseline)
+- a path to a `.json` snapshot file (a committed baseline). It must exist: a missing file is an error (exit 2) telling you to run `snapshot`, not a lookup of a build with that name.
 
-Commit and branch refs are resolved to a build by matching `.metadata.git` from `revyl build list`.
+Commit and branch refs are resolved to a build by matching `.metadata.git` from `revyl build list`: an exact full-sha match wins, otherwise the newest build whose sha starts with the one given. A commit or branch with no matching build exits 3, like other Revyl errors (not 1, which means the gate tripped).
 
 ### Screenshots
 
@@ -172,17 +172,17 @@ Other `init` flags: `--dir <path>` (project root, default `.`), `--baseline <pat
 The scaffolded workflow uses the composite Action in [`github/`](github/) (`action.yml` + `post_check.py`); there is also a copy-paste workflow in [`github/workflow-example.yml`](github/workflow-example.yml). On a PR the Action:
 
 - runs `diff` for the PR build,
-- posts/updates one **sticky comment** (found by the `<!-- atlas-pr-diff -->` marker, so reruns edit in place instead of stacking),
+- posts/updates one **sticky comment** (the comment whose first line is the `<!-- atlas-pr-diff -->` marker, so reruns edit in place instead of stacking; a report over GitHub's 65,536-character comment limit is cut at a line boundary and the full report is printed in the job log),
 - sets a **GitHub Check** whose conclusion follows the exit code.
 
 ### Check conclusions
 
 - 🟢 no map changes → success
-- 🟡 map changed → success or failure, depending on `--fail-on`
-- 🔴 new/changed screens are untested → failure under the default gate
-- ⚠️ Atlas data missing → **neutral** (not a failure). The head build has no Atlas map yet; the comment tells you to run an exploration.
+- 🟡 map changed → neutral, or failure under `--fail-on changes`
+- 🔴 new/changed screens are untested → failure under the default gate (and under `changes`); neutral under `--fail-on none`
+- ⚠️ Atlas data missing → **neutral** (not a failure), whatever `--fail-on` says. A build has no Atlas map yet; the comment tells you to run an exploration.
 
-The neutral case matters: a PR is never failed just because its build has not been Atlas-explored yet.
+The Check is `failure` exactly when the gate trips (`diff` exits 1), so a passing gate never shows a red Check. If `diff` cannot produce a report at all (exit 2: a missing baseline file, a bad `fail_on` or another invalid argument; exit 3: a Revyl error, including no build for the commit or branch), the job fails unless `fail-on` is `none`, and the Check is neutral because there is nothing to grade. The neutral case matters: a PR is never failed just because its build has not been Atlas-explored yet.
 
 ### Handling exploration lag: `--wait-for-map`
 
@@ -215,11 +215,11 @@ git add atlas-baseline.json && git commit -m "atlas baseline"
 - **Renamed** — a screen whose only change is its name.
 - **Removed / no longer reached** — screens in base with no match in head.
 - **Flows affected downstream** — named Atlas flows whose route passes through an added/changed/removed screen.
-- **Possibly orphaned** — screens still in the app that lost their only inbound path because the screen that led to them was removed.
-- **Lost test coverage** — edges a test traversed in base but not in head.
+- **Possibly orphaned** — screens still in the app that lost their only inbound path because the screen that led to them was removed (entry points are never orphaned, and a screen's edge to itself is not an inbound path).
+- **Lost test coverage** — screen-to-screen transitions a test traversed in base that no test traverses in head. Atlas can hold several parallel edges for one transition (the same tap described in different words); they count as one transition, so rewording a tested tap is not lost coverage.
 - **Now untested** — new/changed screens that no test reaches (no test-backed in/out edge). This is the headline signal and what the default CI gate fires on. Each untested screen shows the reach-path (entry → … → screen) and a "cover it" hint pointing at `revyl test create`.
 
-Screens are matched first by canonical Atlas id, then leftovers by normalized name + product area (so an id churn does not look like a delete-plus-add).
+Screens are matched first by canonical Atlas id, then leftovers by normalized name + product area (so an id churn does not look like a delete-plus-add). When several screens share a name, each pairs with the same-named screen it most resembles (kind, description, primary actions). Finally, a leftover whose name is unique on both sides and whose kind is unchanged is matched across product areas, so a screen that moved area *and* got a new id shows as changed (`area A → B`). Unnamed screens are only matched by id.
 
 Long sections auto-collapse into `<details>` blocks so a big PR does not produce a wall of text.
 
@@ -349,11 +349,13 @@ Preflight checks (auth, config, app mapped, baseline freshness). `--app` overrid
 - `changes` — fail on any map change.
 - `none` — never fail.
 
+Missing Atlas data (either build has 0 mapped screens) never trips the gate, under any `--fail-on`.
+
 Codes:
 
-- `0` — passed (or `--fail-on none`).
+- `0` — passed (or `--fail-on none`, or Atlas data missing).
 - `1` — the gate tripped (untested screens, or any change under `--fail-on changes`).
-- `2` — `resolve` found no matching build.
+- `2` — `resolve` found no matching build, or bad input: a `.json` baseline path that does not exist, a `fail_on` in the config that is not one of `untested` / `changes` / `none`, or an invalid command-line argument.
 - `3` — a `revyl` CLI error (binary missing, auth, bad output).
 
 ## Limitations / known issues
