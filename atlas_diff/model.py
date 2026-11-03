@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections import deque
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -94,21 +95,36 @@ class Snapshot:
     flows: list[Flow]
     stats: dict
     source: str = "live"                  # "live" or "snapshot-file"
+    # lazily built {source: [edges]}, {target: [edges]} (see _edge_index)
+    _index: tuple | None = field(default=None, init=False, repr=False, compare=False)
 
     # --- graph helpers -------------------------------------------------
+    def _edge_index(self) -> tuple[dict[str, list[Edge]], dict[str, list[Edge]]]:
+        """Adjacency lists, built once instead of rescanning every edge per
+        lookup (which made a diff O(screens x edges)). Rebuilt if `edges`
+        is replaced or grows/shrinks."""
+        key = (id(self.edges), len(self.edges))
+        if self._index is None or self._index[0] != key:
+            out: dict[str, list[Edge]] = {}
+            inn: dict[str, list[Edge]] = {}
+            for e in self.edges:
+                out.setdefault(e.source, []).append(e)
+                inn.setdefault(e.target, []).append(e)
+            self._index = (key, out, inn)
+        return self._index[1], self._index[2]
+
     def out_edges(self, screen_id: str) -> list[Edge]:
-        return [e for e in self.edges if e.source == screen_id]
+        return list(self._edge_index()[0].get(screen_id, ()))
 
     def in_edges(self, screen_id: str) -> list[Edge]:
-        return [e for e in self.edges if e.target == screen_id]
+        return list(self._edge_index()[1].get(screen_id, ()))
 
     def reachable_from(self, seeds: set[str]) -> set[str]:
         """Forward BFS over edges: every screen reachable from `seeds`."""
         seen = set(seeds)
         stack = list(seeds)
-        adj: dict[str, list[str]] = {}
-        for e in self.edges:
-            adj.setdefault(e.source, []).append(e.target)
+        out = self._edge_index()[0]
+        adj = {src: [e.target for e in es] for src, es in out.items()}
         while stack:
             cur = stack.pop()
             for nxt in adj.get(cur, []):
@@ -136,31 +152,41 @@ class Snapshot:
     def shortest_path(self, target: str, sources: list[str] | None = None) -> list[str]:
         """BFS shortest path (list of screen ids) from any entry point to
         `target`. Empty if unreachable."""
-        if target not in self.screens:
-            return []
-        sources = sources or self.entry_points()
-        if target in sources:
-            return [target]
-        adj: dict[str, list[str]] = {}
-        for e in self.edges:
-            adj.setdefault(e.source, []).append(e.target)
+        return self.shortest_paths([target], sources).get(target, [])
+
+    def shortest_paths(self, targets, sources: list[str] | None = None) -> dict[str, list[str]]:
+        """Shortest paths from the entry points to every target in one BFS
+        (instead of one full BFS per target). Unknown or unreachable targets
+        are absent. Paths match what a per-target BFS would return."""
+        want = {t for t in targets if t in self.screens}
+        if not want:
+            return {}
+        sources = list(sources or self.entry_points())
+        out = self._edge_index()[0]
         prev: dict[str, str] = {}
         seen = set(sources)
-        queue = list(sources)
-        while queue:
-            cur = queue.pop(0)
-            for nxt in adj.get(cur, []):
+        queue = deque(sources)
+        left = len(want - seen)
+        while queue and left:
+            cur = queue.popleft()
+            for e in out.get(cur, ()):
+                nxt = e.target
                 if nxt in seen:
                     continue
                 seen.add(nxt)
                 prev[nxt] = cur
-                if nxt == target:
-                    path = [target]
-                    while path[-1] in prev:
-                        path.append(prev[path[-1]])
-                    return list(reversed(path))
+                if nxt in want:
+                    left -= 1
                 queue.append(nxt)
-        return []
+        paths: dict[str, list[str]] = {}
+        for t in want:
+            if t not in seen:
+                continue
+            path = [t]
+            while path[-1] in prev:
+                path.append(prev[path[-1]])
+            paths[t] = path[::-1]
+        return paths
 
     # --- serialization (for cached baselines) --------------------------
     def to_dict(self) -> dict:
