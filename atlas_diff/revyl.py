@@ -172,22 +172,33 @@ def list_apps() -> list[dict]:
 
 
 def build_for_commit(app: str, commit: str) -> dict | None:
-    """Find the most recent build whose git commit matches `commit`.
+    """Find the build whose git commit matches `commit` (full or short sha,
+    case-insensitive).
 
-    Matches full sha or short sha (prefix), case-insensitive.
+    An exact full-sha match wins wherever it is in the list. Otherwise the
+    newest build whose recorded sha starts with `commit` is returned, or one
+    that only recorded a short sha which is a prefix of `commit`. A build
+    whose full sha merely shares a prefix with a *different* full sha is
+    never returned.
     """
     commit = (commit or "").strip().lower()
     if not commit:
         return None
-    for b in list_builds(app):
+    builds = list_builds(app)
+
+    def shas(b: dict) -> tuple[str, str]:
         git = (b.get("metadata") or {}).get("git") or {}
-        full = (git.get("commit") or "").lower()
-        short = (git.get("commit_short") or "").lower()
-        if full == commit or short == commit:
+        return (git.get("commit") or "").lower(), (git.get("commit_short") or "").lower()
+
+    for b in builds:
+        if shas(b)[0] == commit:
             return b
-        if commit and (full.startswith(commit) or short.startswith(commit)):
+    for b in builds:
+        full, short = shas(b)
+        if short == commit or (full and full.startswith(commit)) \
+                or (short and short.startswith(commit)):
             return b
-        if full.startswith(commit[:7]) and len(commit) >= 7:
+        if not full and len(short) >= 7 and commit.startswith(short):
             return b
     return None
 

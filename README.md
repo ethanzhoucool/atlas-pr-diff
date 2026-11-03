@@ -136,9 +136,9 @@ atlas-diff apps
 - `latest` or `all`
 - `commit:<sha>` or a bare 7–40 char git sha
 - `branch:<name>`
-- a path to a `.json` snapshot file (a committed baseline)
+- a path to a `.json` snapshot file (a committed baseline). It must exist: a missing file is an error (exit 2) telling you to run `snapshot`, not a lookup of a build with that name.
 
-Commit and branch refs are resolved to a build by matching `.metadata.git` from `revyl build list`.
+Commit and branch refs are resolved to a build by matching `.metadata.git` from `revyl build list`: an exact full-sha match wins, otherwise the newest build whose sha starts with the one given. A commit or branch with no matching build exits 3, like other Revyl errors (not 1, which means the gate tripped).
 
 ### Screenshots
 
