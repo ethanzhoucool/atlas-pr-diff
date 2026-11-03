@@ -16,6 +16,10 @@
 
 name: Atlas map diff
 
+# Keep this on `pull_request`. `pull_request_target` runs with your secrets
+# (REVYL_API_KEY) and a write token even for PRs from forks; if you ever switch
+# to it, never check out or run the PR's code in this job. With
+# `pull_request`, fork PRs get no secrets, so REVYL_API_KEY is empty there.
 on:
   pull_request:
     # Optionally scope to PRs that touch app code:

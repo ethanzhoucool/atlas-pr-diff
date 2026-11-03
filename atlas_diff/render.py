@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 from .diff import DiffResult
+from .mdsafe import attr, code, text, url
 
 MARKER = "<!-- atlas-pr-diff -->"   # lets the Action find & update its sticky comment
 _COLLAPSE_OVER = 8                  # wrap longer lists in <details>
 
 
 def _verdict(res: DiffResult) -> tuple[str, str]:
-    if res.warnings and any("0 screens" in w for w in res.warnings):
+    if res.data_missing:
         return "⚠️", "Atlas data missing"
     if res.has_untested:
         return "🔴", "New/changed screens are untested"
@@ -19,8 +20,14 @@ def _verdict(res: DiffResult) -> tuple[str, str]:
 
 
 def _slink(name: str, viewer: str | None) -> str:
-    """`name` as a code span, linked to the Atlas viewer when available."""
-    return f"[`{name}`]({viewer})" if viewer else f"`{name}`"
+    """`name` as a code span, linked to the Atlas viewer when available.
+    Names and URLs come from Atlas, so both are escaped (see mdsafe)."""
+    href = url(viewer)
+    return f"[{code(name)}]({href})" if href else code(name)
+
+
+def _area(area: str | None, default: str = "") -> str:
+    return f"_{text(area)}_" if area else default
 
 
 def _section(lines: list[str], title: str, body: list[str], *, open_if_small=True):
@@ -45,7 +52,7 @@ def render_markdown(res: DiffResult, meta: dict) -> str:
     lines: list[str] = [MARKER]
     lines.append(f"## {emoji} {meta.get('title', 'Atlas map diff')}")
     lines.append("")
-    lines.append(f"**{verdict}** &nbsp;·&nbsp; base `{meta.get('base_label')}` → head `{meta.get('head_label')}`")
+    lines.append(f"**{verdict}** &nbsp;·&nbsp; base {code(meta.get('base_label'))} → head {code(meta.get('head_label'))}")
     lines.append("")
     lines.append(
         f"`+{c['screens_added']}` new · `~{c['screens_changed']}` changed · "
@@ -67,27 +74,27 @@ def render_markdown(res: DiffResult, meta: dict) -> str:
         body = ["New or changed screens that **no test reaches** — the gap this PR introduces:", ""]
         for u in res.untested_screens:
             link = _slink(u["name"], u.get("viewer_url"))
-            body.append(f"- {link} · _{u['product_area'] or '–'}_ ({u['status']})")
+            body.append(f"- {link} · {_area(u['product_area'], '_–_')} ({u['status']})")
             path = u.get("reach_path") or []
             if len(path) > 1:
-                body.append(f"  - reach it: {' → '.join('`%s`' % p for p in path)}")
+                body.append(f"  - reach it: {' → '.join(code(p) for p in path)}")
             elif path:
                 body.append(f"  - entry screen (reached directly)")
             else:
                 body.append(f"  - no mapped path reaches it (deep link / not yet explored)")
-            body.append(f"  - cover it: `revyl test create --app \"{meta.get('app','<app>')}\"` "
-                        f"then exercise this screen")
+            cover_cmd = 'revyl test create --app "%s"' % meta.get("app", "<app>")
+            body.append(f"  - cover it: {code(cover_cmd)} then exercise this screen")
         _section(lines, f"🔴 Now untested ({len(res.untested_screens)})", body)
 
     # 🆕 new screens, with viewer links (+ optional local thumbnails)
     if res.added:
         body = []
         for s in res.added:
-            area = f" · _{s.product_area}_" if s.product_area else ""
-            desc = f" — {s.description}" if s.description else ""
-            body.append(f"- {_slink(s.label, s.viewer_url)} ({s.screen_kind or 'screen'}){area}{desc}")
+            area = f" · {_area(s.product_area)}" if s.product_area else ""
+            desc = f" — {text(s.description)}" if s.description else ""
+            body.append(f"- {_slink(s.label, s.viewer_url)} ({text(s.screen_kind) or 'screen'}){area}{desc}")
             if embed and s.local_screenshot_path:
-                body.append(f"  <br><img src=\"{s.local_screenshot_path}\" width=\"200\">")
+                body.append(f"  <br><img src=\"{attr(s.local_screenshot_path)}\" width=\"200\">")
         _section(lines, f"🆕 New screens ({len(res.added)})", body)
 
     if res.changed:
@@ -95,7 +102,7 @@ def render_markdown(res: DiffResult, meta: dict) -> str:
         for ch in res.changed:
             sc = res.head.screens.get(ch.screen_id)
             viewer = sc.viewer_url if sc else None
-            area = f" · _{ch.product_area}_" if ch.product_area else ""
+            area = f" · {_area(ch.product_area)}" if ch.product_area else ""
             body.append(f"- {_slink(ch.name, viewer)}{area}")
             for r in ch.reasons:
                 body.append(f"  - {r}")
@@ -108,30 +115,31 @@ def render_markdown(res: DiffResult, meta: dict) -> str:
     if res.removed:
         body = []
         for s in res.removed:
-            area = f" · _{s.product_area}_" if s.product_area else ""
-            body.append(f"- {_slink(s.label, s.viewer_url)} ({s.screen_kind or 'screen'}){area}")
+            area = f" · {_area(s.product_area)}" if s.product_area else ""
+            body.append(f"- {_slink(s.label, s.viewer_url)} ({text(s.screen_kind) or 'screen'}){area}")
         _section(lines, f"🗑️ Removed / no longer reached ({len(res.removed)})", body)
 
     if res.affected_flows:
         body = []
         for f in res.affected_flows:
             tag = " _(broken)_" if f.get("removed") else ""
-            hits = ", ".join(f"`{h}`" for h in f["hit_screens"][:5])
-            body.append(f"- **{f['label'] or f['id'][:8]}**{tag} — touches {hits}")
+            hits = ", ".join(code(h) for h in f["hit_screens"][:5])
+            label = text(f["label"] or f["id"][:8])
+            body.append(f"- **{label}**{tag} — touches {hits}")
         _section(lines, f"🔀 Flows affected downstream ({len(res.affected_flows)})", body)
 
     if res.orphaned_screens:
         body = ["Still in the app but no longer reached by any mapped path:"]
         for o in res.orphaned_screens:
             body.append(f"- {_slink(o['name'], res.head.viewer_of(o['id']))} — "
-                        f"lost its only inbound path via removed `{o['via_removed']}`")
+                        f"lost its only inbound path via removed {code(o['via_removed'])}")
         _section(lines, f"⚠️ Possibly orphaned ({len(res.orphaned_screens)})", body)
 
     if res.lost_coverage_edges:
         body = []
         for e in res.lost_coverage_edges[:12]:
-            body.append(f"- `{res.base.name_of(e.source)}` → `{res.base.name_of(e.target)}` "
-                        f"({e.action_label or e.action_type})")
+            body.append(f"- {code(res.base.name_of(e.source))} → {code(res.base.name_of(e.target))} "
+                        f"({text(e.action_label or e.action_type)})")
         if len(res.lost_coverage_edges) > 12:
             body.append(f"- …(+{len(res.lost_coverage_edges) - 12} more)")
         _section(lines, f"📉 Lost test coverage ({len(res.lost_coverage_edges)})", body)
@@ -148,7 +156,7 @@ def render_markdown(res: DiffResult, meta: dict) -> str:
 
 
 def render_json(res: DiffResult, meta: dict) -> dict:
-    return {
+    out = {
         "app": meta.get("app"),
         "base": meta.get("base_label"),
         "head": meta.get("head_label"),
@@ -171,6 +179,10 @@ def render_json(res: DiffResult, meta: dict) -> dict:
              "action": e.action_label} for e in res.lost_coverage_edges
         ],
     }
+    if meta.get("fail_on"):
+        # What the CI gate decided, so the Check Run can agree with the job.
+        out["gate"] = {"fail_on": meta["fail_on"], "failed": res.gate_failed(meta["fail_on"])}
+    return out
 
 
 def render_terminal(res: DiffResult, meta: dict) -> str:
