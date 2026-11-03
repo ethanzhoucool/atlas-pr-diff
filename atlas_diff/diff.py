@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from .mdsafe import code
 from .model import Edge, Screen, Snapshot
 
 DEFAULT_MIN_SUPPORT = 2          # ignore edges seen fewer than this many times
@@ -196,11 +197,11 @@ def _structural_reasons(bs: Screen, hs: Screen) -> tuple[list[str], bool]:
     reasons: list[str] = []
     renamed = _norm_name(bs.name) != _norm_name(hs.name)
     if renamed:
-        reasons.append(f"renamed `{bs.name}` → `{hs.name}`")
+        reasons.append(f"renamed {code(bs.name)} → {code(hs.name)}")
     if bs.screen_kind != hs.screen_kind:
-        reasons.append(f"kind `{bs.screen_kind or '?'}` → `{hs.screen_kind or '?'}`")
+        reasons.append(f"kind {code(bs.screen_kind or '?')} → {code(hs.screen_kind or '?')}")
     if bs.product_area != hs.product_area:
-        reasons.append(f"area `{bs.product_area or '?'}` → `{hs.product_area or '?'}`")
+        reasons.append(f"area {code(bs.product_area or '?')} → {code(hs.product_area or '?')}")
     if _norm(bs.description) != _norm(hs.description):
         reasons.append("purpose/description changed")
 
@@ -269,9 +270,9 @@ def diff(base: Snapshot, head: Snapshot, *, min_support: int = DEFAULT_MIN_SUPPO
 
         wiring_reasons: list[str] = []
         for t in to_new:
-            wiring_reasons.append(f"now navigates to new screen `{head.name_of(t)}`")
+            wiring_reasons.append(f"now navigates to new screen {code(head.name_of(t))}")
         for nm in sorted(set(removed_wiring)):
-            wiring_reasons.append(f"no longer navigates to removed screen `{nm}`")
+            wiring_reasons.append(f"no longer navigates to removed screen {code(nm)}")
 
         net_nav = len(new_t) + len(gone_t)
 
