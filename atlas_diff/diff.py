@@ -232,8 +232,8 @@ def diff(base: Snapshot, head: Snapshot, *, min_support: int = DEFAULT_MIN_SUPPO
             "Run an Atlas exploration against the head build before diffing.")
 
     matched, added, removed = _match_screens(base, head)
-    res.added = sorted(added, key=lambda s: (-s.observation_count, s.product_area, s.name))
-    res.removed = sorted(removed, key=lambda s: (-s.observation_count, s.product_area, s.name))
+    res.added = sorted(added, key=lambda s: (-s.observation_count, s.product_area, s.name, s.id))
+    res.removed = sorted(removed, key=lambda s: (-s.observation_count, s.product_area, s.name, s.id))
     added_ids = {s.id for s in res.added}
     removed_base_ids = {s.id for s in res.removed}
     base_to_head = {b: h for h, b in matched.items()}
@@ -259,7 +259,9 @@ def diff(base: Snapshot, head: Snapshot, *, min_support: int = DEFAULT_MIN_SUPPO
         new_t = set(h_targets) - set(b_targets)
         gone_t = set(b_targets) - set(h_targets)
 
-        to_new = [t for t in new_t if t in added_ids]
+        # new_t is a set: sort, or the reason order follows Python's per-process
+        # string-hash seed and the sticky comment churns on every rerun.
+        to_new = sorted((t for t in new_t if t in added_ids), key=lambda t: (head.name_of(t), t))
         # wiring to removed screens: read straight off base out-edges
         removed_wiring = [base.name_of(e.target)
                           for e in base.out_edges(bid)
@@ -288,10 +290,11 @@ def diff(base: Snapshot, head: Snapshot, *, min_support: int = DEFAULT_MIN_SUPPO
                 None, kind="nav_churn"))
         # else: effectively unchanged
 
-    res.added.sort(key=lambda s: (s.product_area, s.name))
-    res.changed.sort(key=lambda c: (c.product_area, c.name))
-    res.renamed.sort(key=lambda c: (c.product_area, c.name))
-    res.nav_churn.sort(key=lambda c: (c.product_area, c.name))
+    # total orders (id last) so same-named screens can't swap places between runs
+    res.added.sort(key=lambda s: (s.product_area, s.name, s.id))
+    res.changed.sort(key=lambda c: (c.product_area, c.name, c.screen_id))
+    res.renamed.sort(key=lambda c: (c.product_area, c.name, c.screen_id))
+    res.nav_churn.sort(key=lambda c: (c.product_area, c.name, c.screen_id))
 
     # --- edge-level diff (significant edges only, head ids in base space) ---
     # Compared per (source, target) transition on both sides: Atlas keeps
