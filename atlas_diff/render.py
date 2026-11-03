@@ -9,7 +9,7 @@ _COLLAPSE_OVER = 8                  # wrap longer lists in <details>
 
 
 def _verdict(res: DiffResult) -> tuple[str, str]:
-    if res.warnings and any("0 screens" in w for w in res.warnings):
+    if res.data_missing:
         return "⚠️", "Atlas data missing"
     if res.has_untested:
         return "🔴", "New/changed screens are untested"
@@ -148,7 +148,7 @@ def render_markdown(res: DiffResult, meta: dict) -> str:
 
 
 def render_json(res: DiffResult, meta: dict) -> dict:
-    return {
+    out = {
         "app": meta.get("app"),
         "base": meta.get("base_label"),
         "head": meta.get("head_label"),
@@ -171,6 +171,10 @@ def render_json(res: DiffResult, meta: dict) -> dict:
              "action": e.action_label} for e in res.lost_coverage_edges
         ],
     }
+    if meta.get("fail_on"):
+        # What the CI gate decided, so the Check Run can agree with the job.
+        out["gate"] = {"fail_on": meta["fail_on"], "failed": res.gate_failed(meta["fail_on"])}
+    return out
 
 
 def render_terminal(res: DiffResult, meta: dict) -> str:

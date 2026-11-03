@@ -13,7 +13,7 @@ Signals produced:
   * nav_churn — screens whose only delta is reroute noise (kept separate)
   * flows & screens affected downstream of a change (graph reachability)
   * "now untested" — new/changed screens no test reaches (edge.test_support 0)
-  * lost_coverage — edges a test traversed in base but not in head
+  * lost_coverage — transitions a test traversed in base but no test does in head
 """
 
 from __future__ import annotations
@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 from .model import Edge, Screen, Snapshot
 
 DEFAULT_MIN_SUPPORT = 2          # ignore edges seen fewer than this many times
+FAIL_ON_CHOICES = ("none", "untested", "changes")   # values of --fail-on / fail_on
 NAV_CHURN_THRESHOLD = 3          # net nav deltas below this (with no wiring/semantic change) = noise
 
 
@@ -85,6 +86,25 @@ class DiffResult:
     def has_untested(self) -> bool:
         return bool(self.untested_screens)
 
+    @property
+    def data_missing(self) -> bool:
+        """One side has no Atlas map, so the comparison means nothing."""
+        return not self.base.screens or not self.head.screens
+
+    def gate_failed(self, fail_on: str) -> bool:
+        """Whether the CI gate trips for `fail_on` (one of FAIL_ON_CHOICES).
+
+        Missing Atlas data never trips it: an unmapped build is reported as
+        "Atlas data missing" (neutral), not as a failure.
+        """
+        if fail_on not in FAIL_ON_CHOICES:
+            raise ValueError(f"unknown fail_on {fail_on!r}")
+        if fail_on == "none" or self.data_missing:
+            return False
+        if fail_on == "untested":
+            return self.has_untested
+        return self.has_changes
+
     def summary_counts(self) -> dict:
         return {
             "screens_added": len(self.added),
@@ -101,12 +121,28 @@ class DiffResult:
         }
 
 
+def _likeness(bs: Screen, hs: Screen) -> int:
+    """How many identity-defining fields two same-named screens share; used to
+    pick the right partner when several screens carry one name."""
+    return ((bs.screen_kind == hs.screen_kind)
+            + (_norm(bs.description) == _norm(hs.description))
+            + ({_norm(a) for a in bs.primary_actions} == {_norm(a) for a in hs.primary_actions}))
+
+
 def _match_screens(base: Snapshot, head: Snapshot
                    ) -> tuple[dict[str, str], list[Screen], list[Screen]]:
     """Match head screens to base screens.
 
     Pass 1: by canonical id (stable across builds in Atlas).
     Pass 2: leftovers by normalized semantic name + product area (id churn).
+            Several screens may share a name; each head screen takes the
+            unused same-named base screen it most resembles (kind,
+            description, primary actions), first in base order on a tie.
+    Pass 3: leftovers by normalized name alone, when exactly one base and one
+            head leftover carry that name and they are the same kind of
+            screen: a screen that changed product area *and* id. It shows up
+            as changed (with an `area` reason) rather than as a delete + add.
+    Screens without a name are only ever matched by id.
     Returns (head_id -> base_id, added, removed).
     """
     matched: dict[str, str] = {}
@@ -117,19 +153,37 @@ def _match_screens(base: Snapshot, head: Snapshot
             matched[hid] = hid
             used_base.add(hid)
 
-    base_by_name: dict[tuple[str, str], str] = {}
-    for bid, bs in base.screens.items():
-        if bid in used_base:
-            continue
-        base_by_name.setdefault((_norm_name(bs.name), bs.product_area), bid)
+    def leftovers_by(snap: Snapshot, taken, key) -> dict:
+        groups: dict = {}
+        for sid, sc in snap.screens.items():
+            if sid in taken or not _norm_name(sc.name):
+                continue
+            groups.setdefault(key(sc), []).append(sid)
+        return groups
 
+    # pass 2: name + area
+    base_by_name = leftovers_by(base, used_base, lambda sc: (_norm_name(sc.name), sc.product_area))
     for hid, hs in head.screens.items():
-        if hid in matched:
+        if hid in matched or not _norm_name(hs.name):
             continue
-        bid = base_by_name.get((_norm_name(hs.name), hs.product_area))
-        if bid and bid not in used_base:
-            matched[hid] = bid
-            used_base.add(bid)
+        cands = base_by_name.get((_norm_name(hs.name), hs.product_area))
+        if not cands:
+            continue
+        bid = max(cands, key=lambda b: _likeness(base.screens[b], hs))  # first wins ties
+        cands.remove(bid)
+        matched[hid] = bid
+        used_base.add(bid)
+
+    # pass 3: unique name across areas
+    base_left = leftovers_by(base, used_base, lambda sc: _norm_name(sc.name))
+    head_left = leftovers_by(head, matched, lambda sc: _norm_name(sc.name))
+    for name, hids in head_left.items():
+        bids = base_left.get(name) or []
+        if len(hids) == 1 and len(bids) == 1:
+            hid, bid = hids[0], bids[0]
+            if head.screens[hid].screen_kind == base.screens[bid].screen_kind:
+                matched[hid] = bid
+                used_base.add(bid)
 
     added = [head.screens[h] for h in head.screens if h not in matched]
     removed = [base.screens[b] for b in base.screens if b not in used_base]
@@ -243,15 +297,22 @@ def diff(base: Snapshot, head: Snapshot, *, min_support: int = DEFAULT_MIN_SUPPO
     res.nav_churn.sort(key=lambda c: (c.product_area, c.name, c.screen_id))
 
     # --- edge-level diff (significant edges only, head ids in base space) ---
-    base_sig = {(e.source, e.target): e for e in base.edges if _significant(e, min_support)}
-    head_sig_in_base = set()
+    # Compared per (source, target) transition on both sides: Atlas keeps
+    # parallel edges for one transition (the same tap described in different
+    # words), and those must not count as several added edges.
+    base_sig: dict[tuple[str, str], Edge] = {}
+    for e in base.edges:
+        if _significant(e, min_support):
+            base_sig.setdefault((e.source, e.target), e)
+    head_sig_in_base: set[tuple[str, str]] = set()
     for e in head.edges:
         if not _significant(e, min_support):
             continue
-        bs_id = matched.get(e.source, e.source)
-        bt_id = matched.get(e.target, e.target)
-        head_sig_in_base.add((bs_id, bt_id))
-        if (bs_id, bt_id) not in base_sig:
+        key = (matched.get(e.source, e.source), matched.get(e.target, e.target))
+        if key in head_sig_in_base:
+            continue
+        head_sig_in_base.add(key)
+        if key not in base_sig:
             res.edges_added.append(e)
     for key, e in base_sig.items():
         if key not in head_sig_in_base:
@@ -271,7 +332,8 @@ def diff(base: Snapshot, head: Snapshot, *, min_support: int = DEFAULT_MIN_SUPPO
                                        "hit_screens": [base.name_of(n) for n in hit], "removed": True})
 
     # --- orphaned screens: still present in head but lost every inbound path,
-    #     where a removed screen used to lead to them (a real downstream break) ---
+    #     where a removed screen used to lead to them (a real downstream break).
+    #     An entry point is reachable directly, and a self-loop is not a way in. ---
     seen_orphans: set[str] = set()
     for rs in res.removed:
         for e in base.out_edges(rs.id):
@@ -280,7 +342,10 @@ def diff(base: Snapshot, head: Snapshot, *, min_support: int = DEFAULT_MIN_SUPPO
             succ_head = base_to_head.get(e.target, e.target)
             if succ_head not in head.screens or succ_head in seen_orphans:
                 continue
-            if not any(_significant(ie, min_support) for ie in head.in_edges(succ_head)):
+            if head.screens[succ_head].is_entry_point:
+                continue
+            if not any(_significant(ie, min_support) and ie.source != succ_head
+                       for ie in head.in_edges(succ_head)):
                 seen_orphans.add(succ_head)
                 res.orphaned_screens.append({
                     "id": succ_head, "name": head.name_of(succ_head),
@@ -305,14 +370,19 @@ def diff(base: Snapshot, head: Snapshot, *, min_support: int = DEFAULT_MIN_SUPPO
                 "viewer_url": sc.viewer_url,
             })
 
-    # --- lost coverage: tested in base, gone/untested in head ----------
-    head_edge_by_key = {(matched.get(e.source, e.source), matched.get(e.target, e.target)): e
-                        for e in head.edges}
+    # --- lost coverage: a transition a test traversed in base that no test
+    #     traverses in head. Keyed by (source, target), not by edge: parallel
+    #     edges for one transition differ only in how the tap was worded, so
+    #     a reworded-but-still-tested tap is not lost coverage, and a lost
+    #     transition is reported once however many parallel edges it had. ---
+    head_tested = {(matched.get(e.source, e.source), matched.get(e.target, e.target))
+                   for e in head.edges if e.tested}
+    lost_keys: set[tuple[str, str]] = set()
     for e in base.edges:
-        if not e.tested:
+        key = (e.source, e.target)
+        if not e.tested or key in head_tested or key in lost_keys:
             continue
-        he = head_edge_by_key.get((e.source, e.target))
-        if he is None or not he.tested:
-            res.lost_coverage_edges.append(e)
+        lost_keys.add(key)
+        res.lost_coverage_edges.append(e)
 
     return res
