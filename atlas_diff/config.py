@@ -32,10 +32,32 @@ def _coerce(v: str):
     return s
 
 
+def _strip_comment(line: str) -> str:
+    """Drop a trailing `# comment` the way YAML does: `#` starts a comment only
+    at the start of the line or after whitespace, and never inside a quoted
+    value. So `app: My#App` and `title: "Atlas #1"` keep their `#`."""
+    quote = None
+    seen_colon = value_started = False
+    for i, ch in enumerate(line):
+        if quote:
+            if ch == quote:
+                quote = None
+            continue
+        if ch == "#" and (i == 0 or line[i - 1] in " \t"):
+            return line[:i]
+        if ch == ":" and not seen_colon:
+            seen_colon = True
+        elif seen_colon and not value_started and ch not in " \t":
+            value_started = True
+            if ch in "'\"":
+                quote = ch
+    return line
+
+
 def _parse_flat_yaml(text: str) -> dict:
     out: dict = {}
     for raw in text.splitlines():
-        line = raw.split("#", 1)[0].rstrip() if not raw.strip().startswith("#") else ""
+        line = _strip_comment(raw).rstrip()
         if not line.strip() or ":" not in line:
             continue
         if line[0] in " \t":   # nested — unsupported, skip
