@@ -136,9 +136,9 @@ atlas-diff apps
 - `latest` or `all`
 - `commit:<sha>` or a bare 7–40 char git sha
 - `branch:<name>`
-- a path to a `.json` snapshot file (a committed baseline)
+- a path to a `.json` snapshot file (a committed baseline). It must exist: a missing file is an error (exit 2) telling you to run `snapshot`, not a lookup of a build with that name.
 
-Commit and branch refs are resolved to a build by matching `.metadata.git` from `revyl build list`.
+Commit and branch refs are resolved to a build by matching `.metadata.git` from `revyl build list`: an exact full-sha match wins, otherwise the newest build whose sha starts with the one given. A commit or branch with no matching build exits 3, like other Revyl errors (not 1, which means the gate tripped).
 
 ### Screenshots
 
@@ -172,7 +172,7 @@ Other `init` flags: `--dir <path>` (project root, default `.`), `--baseline <pat
 The scaffolded workflow uses the composite Action in [`github/`](github/) (`action.yml` + `post_check.py`); there is also a copy-paste workflow in [`github/workflow-example.yml`](github/workflow-example.yml). On a PR the Action:
 
 - runs `diff` for the PR build,
-- posts/updates one **sticky comment** (found by the `<!-- atlas-pr-diff -->` marker, so reruns edit in place instead of stacking),
+- posts/updates one **sticky comment** (the comment whose first line is the `<!-- atlas-pr-diff -->` marker, so reruns edit in place instead of stacking; a report over GitHub's 65,536-character comment limit is cut at a line boundary and the full report is printed in the job log),
 - sets a **GitHub Check** whose conclusion follows the exit code.
 
 ### Check conclusions

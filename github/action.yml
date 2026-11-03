@@ -102,27 +102,41 @@ runs:
         # Make sure the default install location is on PATH for later steps.
         echo "$HOME/.revyl/bin" >> "$GITHUB_PATH"
 
+    # Inputs reach the scripts below only through env vars, never as
+    # expressions spliced into the script text: an input that carries
+    # attacker-controlled text (say, a title built from the PR title) must
+    # not be able to run shell commands, and quotes or `$` in a value must
+    # arrive verbatim.
     - name: Run atlas-diff
       id: diff
       shell: bash
       env:
         REVYL_API_KEY: ${{ inputs.revyl-api-key }}
+        ATLAS_APP: ${{ inputs.app }}
+        ATLAS_BASE: ${{ inputs.base }}
+        ATLAS_HEAD: ${{ inputs.head }}
+        ATLAS_TITLE: ${{ inputs.title }}
+        ATLAS_LIMIT: ${{ inputs.limit }}
+        ATLAS_FAIL_ON: ${{ inputs.fail-on }}
+        ATLAS_WAIT_FOR_MAP: ${{ inputs.wait-for-map }}
+        ATLAS_WAIT_TIMEOUT: ${{ inputs.wait-timeout }}
+        ATLAS_UPLOAD_SCREENSHOTS: ${{ inputs.upload-screenshots }}
       run: |
         # Build the optional (v0.2.0) flag list in bash; composite run: is bash.
         extra=()
-        [ "${{ inputs.wait-for-map }}" = "true" ] && extra+=(--wait-for-map --wait-timeout "${{ inputs.wait-timeout }}")
-        [ "${{ inputs.upload-screenshots }}" = "true" ] && extra+=(--screenshot-dir "$RUNNER_TEMP/atlas-shots")
+        [ "$ATLAS_WAIT_FOR_MAP" = "true" ] && extra+=(--wait-for-map --wait-timeout "$ATLAS_WAIT_TIMEOUT")
+        [ "$ATLAS_UPLOAD_SCREENSHOTS" = "true" ] && extra+=(--screenshot-dir "$RUNNER_TEMP/atlas-shots")
 
         # Run the diff WITHOUT aborting the job on a non-zero exit; we decide
         # pass/fail ourselves in the final step (after posting the report).
         set +e
-        "${{ github.action_path }}/../atlas-diff" diff \
-          --app "${{ inputs.app }}" \
-          --base "${{ inputs.base }}" \
-          --head "${{ inputs.head }}" \
-          --title "${{ inputs.title }}" \
-          --limit "${{ inputs.limit }}" \
-          --fail-on "${{ inputs.fail-on }}" \
+        "$GITHUB_ACTION_PATH/../atlas-diff" diff \
+          --app "$ATLAS_APP" \
+          --base "$ATLAS_BASE" \
+          --head "$ATLAS_HEAD" \
+          --title "$ATLAS_TITLE" \
+          --limit "$ATLAS_LIMIT" \
+          --fail-on "$ATLAS_FAIL_ON" \
           --md "$RUNNER_TEMP/atlas-report.md" \
           --json-out "$RUNNER_TEMP/atlas-result.json" \
           "${extra[@]}"
@@ -156,22 +170,29 @@ runs:
       shell: bash
       env:
         GITHUB_TOKEN: ${{ github.token }}
+        PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        ATLAS_TITLE: ${{ inputs.title }}
+        ATLAS_COMMENT: ${{ inputs.comment }}
+        ATLAS_CHECK_RUN: ${{ inputs.check-run }}
       run: |
         args=(--md "$RUNNER_TEMP/atlas-report.md"
               --json "$RUNNER_TEMP/atlas-result.json"
-              --sha "${{ github.event.pull_request.head.sha }}"
-              --title "${{ inputs.title }}")
-        [ "${{ inputs.comment }}" = "true" ]   || args+=(--no-comment)
-        [ "${{ inputs.check-run }}" = "true" ] || args+=(--no-check-run)
+              --sha "$PR_HEAD_SHA"
+              --title "$ATLAS_TITLE")
+        [ "$ATLAS_COMMENT" = "true" ]   || args+=(--no-comment)
+        [ "$ATLAS_CHECK_RUN" = "true" ] || args+=(--no-check-run)
         # post_check.py never crashes CI: it logs and exits 0 on any hiccup.
-        python3 "${{ github.action_path }}/post_check.py" "${args[@]}"
+        python3 "$GITHUB_ACTION_PATH/post_check.py" "${args[@]}"
 
     - name: Enforce gate
       if: always()
       shell: bash
+      env:
+        DIFF_EXIT_CODE: ${{ steps.diff.outputs.exit_code }}
+        ATLAS_FAIL_ON: ${{ inputs.fail-on }}
       run: |
-        code="${{ steps.diff.outputs.exit_code }}"
-        if [ "${{ inputs.fail-on }}" = "none" ]; then
+        code="$DIFF_EXIT_CODE"
+        if [ "$ATLAS_FAIL_ON" = "none" ]; then
           echo "fail-on=none — not gating the PR on Atlas changes."
           exit 0
         fi
@@ -180,7 +201,7 @@ runs:
           exit 1
         fi
         if [ "$code" != "0" ]; then
-          echo "::error::Atlas map diff gate failed (fail-on=${{ inputs.fail-on }})."
+          echo "::error::Atlas map diff gate failed (fail-on=$ATLAS_FAIL_ON)."
           exit 1
         fi
         echo "Atlas map diff gate passed."

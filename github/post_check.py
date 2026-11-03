@@ -69,8 +69,12 @@ VERDICT_TITLE = {
     "No Atlas map changes": "No Atlas map changes",
 }
 
-# GitHub caps check-run output.summary at 65535 chars; stay under it.
-SUMMARY_LIMIT = 60000
+# GitHub rejects an issue/PR comment body over 65,536 characters (HTTP 422) and
+# caps check-run output.summary at 65,535. Fit under both, with headroom.
+COMMENT_LIMIT = 65000
+SUMMARY_LIMIT = 65000
+TRUNCATED_NOTE = ("_…report truncated to fit GitHub's size limit; "
+                  "the full report is printed in this job's log._")
 
 
 def _eprint(*a) -> None:
@@ -105,6 +109,38 @@ def _load_json(path: str | None) -> dict:
     except json.JSONDecodeError as exc:
         _eprint(f"atlas-diff: could not parse JSON {path}: {exc}")
         return {}
+
+
+def fit_markdown(md: str, limit: int, note: str = TRUNCATED_NOTE) -> str:
+    """Return `md` unchanged if it fits in `limit` characters. Otherwise cut it
+    at a line boundary, close any `<details>` block left open (so the rest of
+    the page isn't swallowed into a collapsed section), and append `note`.
+
+    The first line (the sticky marker) is always kept.
+    """
+    if len(md) <= limit:
+        return md
+    tail = "\n\n" + note
+    kept: list[str] = []
+    size = 0
+    open_details = 0
+    for i, line in enumerate(md.split("\n")):
+        depth = max(open_details + line.count("<details>") - line.count("</details>"), 0)
+        add = len(line) + (1 if kept else 0)
+        closers = len("\n</details>") * depth
+        if i > 0 and size + add + closers + len(tail) > limit:
+            break
+        kept.append(line)
+        size += add
+        open_details = depth
+    return "\n".join(kept) + "\n</details>" * open_details + tail
+
+
+def _is_sticky(comment: dict) -> bool:
+    """Our sticky comment *starts* with the marker (render puts it on line 1).
+    A human reply that quotes it ("> <!-- atlas-pr-diff -->") or mentions it
+    mid-body must never be picked up and overwritten."""
+    return (comment.get("body") or "").lstrip().startswith(MARKER)
 
 
 def _derive_pr_number(explicit: int | None) -> int | None:
@@ -227,12 +263,17 @@ def upsert_sticky_comment(repo: str, pr: int, token: str, body: str) -> bool:
                 f"/repos/{repo}/issues/{pr}/comments?per_page=100&page={page}",
                 token, None)
         except (urllib.error.URLError, OSError, ValueError) as exc:
-            _eprint(f"atlas-diff: could not list comments: {exc}")
-            comments = []
-        if not isinstance(comments, list) or not comments:
-            break
+            # Don't fall through to POST: the existing sticky comment may be on
+            # the page we couldn't read, and posting would stack a duplicate.
+            _eprint(f"atlas-diff: could not list comments ({exc}); "
+                    "skipping the comment rather than risk a duplicate")
+            return False
+        if not isinstance(comments, list):
+            _eprint(f"atlas-diff: unexpected comment listing ({type(comments).__name__}); "
+                    "skipping the comment rather than risk a duplicate")
+            return False
         for c in comments:
-            if MARKER in (c.get("body") or ""):
+            if _is_sticky(c):
                 existing_id = c.get("id")
                 break
         if existing_id is not None or len(comments) < 100:
@@ -262,9 +303,7 @@ def create_check_run(repo: str, sha: str, token: str, verdict: str,
                      summary_md: str, title: str, conclusion: str | None = None) -> bool:
     conclusion = conclusion or VERDICT_CONCLUSION.get(verdict, "neutral")
     one_liner = VERDICT_TITLE.get(verdict, verdict or "Atlas map diff")
-    summary = summary_md[:SUMMARY_LIMIT]
-    if len(summary_md) > SUMMARY_LIMIT:
-        summary += "\n\n_…report truncated; see the PR comment for the full diff._"
+    summary = fit_markdown(summary_md, SUMMARY_LIMIT)
     payload = {
         "name": CHECK_NAME,
         "head_sha": sha,
@@ -315,6 +354,12 @@ def main(argv=None) -> int:
     sha = _derive_sha(args.sha)
 
     body = md or (f"{MARKER}\n\n_atlas-diff produced no Markdown report._")
+    if len(body) > min(COMMENT_LIMIT, SUMMARY_LIMIT) and token and repo:
+        # The comment / check run get a truncated copy; keep the whole thing
+        # in the job log so nothing is lost.
+        _eprint(f"atlas-diff: report is {len(body)} chars, over GitHub's limit; "
+                "posting a truncated copy. Full report follows:")
+        print(body)
 
     # Local / no-context runs: just print and succeed so nothing breaks.
     if not token or not repo:
@@ -324,7 +369,7 @@ def main(argv=None) -> int:
 
     if args.comment:
         if pr:
-            upsert_sticky_comment(repo, pr, token, body)
+            upsert_sticky_comment(repo, pr, token, fit_markdown(body, COMMENT_LIMIT))
         else:
             _eprint("atlas-diff: no PR number — skipping sticky comment.")
             print(body)

@@ -33,12 +33,22 @@ def _eprint(*a):
     print(*a, file=sys.stderr)
 
 
+class UsageError(Exception):
+    """A bad ref or path from the user/config (exit 2, not the gate's 1)."""
+
+
 # --- ref resolution -------------------------------------------------------
 
 def _ref_to_build(app: str, ref: str):
     """Turn a ref into ('file', path, {}, label) or ('build', build_ver, git, label)
     WITHOUT fetching the graph (so callers can wait-for-map first)."""
-    if ref.endswith(".json") and os.path.exists(ref):
+    if ref.endswith(".json"):
+        if not os.path.isfile(ref):
+            # Don't fall through and ask Revyl for a build literally named
+            # "atlas-baseline.json": say what is actually wrong.
+            raise UsageError(
+                f"baseline snapshot {ref} not found (cwd: {os.getcwd()}). Create and commit it "
+                f"with `atlas-diff snapshot --app {app} --build branch:main -o {ref}`.")
         return "file", ref, {}, f"file:{os.path.basename(ref)}"
 
     git: dict = {}
@@ -46,8 +56,11 @@ def _ref_to_build(app: str, ref: str):
         sha = ref.split(":", 1)[1] if ":" in ref else ref
         b = revyl.build_for_commit(app, sha)
         if not b:
-            raise SystemExit(f"no Revyl build found for commit {sha} on app {app}. "
-                             f"Has the build been uploaded? (`revyl build list --app {app}`)")
+            # exit 3 like other Revyl lookups (the Action reports it as
+            # "build not found"), not 1, which means "the gate tripped"
+            raise revyl.RevylError(
+                f"no Revyl build found for commit {sha} on app {app}. "
+                f"Has the build been uploaded? (`revyl build list --app {app}`)")
         git = (b.get("metadata") or {}).get("git") or {}
         return "build", b["version"], git, f"{b['version']} ({git.get('commit_short', sha[:7])})"
 
@@ -55,7 +68,7 @@ def _ref_to_build(app: str, ref: str):
         branch = ref.split(":", 1)[1]
         b = revyl.latest_build_for_branch(app, branch)
         if not b:
-            raise SystemExit(f"no Revyl build found for branch {branch} on app {app}.")
+            raise revyl.RevylError(f"no Revyl build found for branch {branch} on app {app}.")
         git = (b.get("metadata") or {}).get("git") or {}
         return "build", b["version"], git, f"{b['version']} ({branch}@{git.get('commit_short', '?')})"
 
@@ -398,6 +411,9 @@ def main(argv=None) -> int:
     except revyl.RevylError as exc:
         _eprint(f"error: {exc}")
         return 3
+    except UsageError as exc:
+        _eprint(f"error: {exc}")
+        return 2
 
 
 if __name__ == "__main__":
