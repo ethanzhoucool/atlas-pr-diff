@@ -178,11 +178,11 @@ The scaffolded workflow uses the composite Action in [`github/`](github/) (`acti
 ### Check conclusions
 
 - 🟢 no map changes → success
-- 🟡 map changed → success or failure, depending on `--fail-on`
-- 🔴 new/changed screens are untested → failure under the default gate
-- ⚠️ Atlas data missing → **neutral** (not a failure). The head build has no Atlas map yet; the comment tells you to run an exploration.
+- 🟡 map changed → neutral, or failure under `--fail-on changes`
+- 🔴 new/changed screens are untested → failure under the default gate (and under `changes`); neutral under `--fail-on none`
+- ⚠️ Atlas data missing → **neutral** (not a failure), whatever `--fail-on` says. A build has no Atlas map yet; the comment tells you to run an exploration.
 
-The neutral case matters: a PR is never failed just because its build has not been Atlas-explored yet.
+The Check is `failure` exactly when the gate trips (`diff` exits 1), so a passing gate never shows a red Check. If `diff` cannot produce a report at all (exit 2: a missing baseline file, a bad `fail_on` or another invalid argument; exit 3: a Revyl error, including no build for the commit or branch), the job fails unless `fail-on` is `none`, and the Check is neutral because there is nothing to grade. The neutral case matters: a PR is never failed just because its build has not been Atlas-explored yet.
 
 ### Handling exploration lag: `--wait-for-map`
 
@@ -349,11 +349,13 @@ Preflight checks (auth, config, app mapped, baseline freshness). `--app` overrid
 - `changes` — fail on any map change.
 - `none` — never fail.
 
+Missing Atlas data (either build has 0 mapped screens) never trips the gate, under any `--fail-on`.
+
 Codes:
 
-- `0` — passed (or `--fail-on none`).
+- `0` — passed (or `--fail-on none`, or Atlas data missing).
 - `1` — the gate tripped (untested screens, or any change under `--fail-on changes`).
-- `2` — `resolve` found no matching build.
+- `2` — `resolve` found no matching build, or bad input: a `.json` baseline path that does not exist, a `fail_on` in the config that is not one of `untested` / `changes` / `none`, or an invalid command-line argument.
 - `3` — a `revyl` CLI error (binary missing, auth, bad output).
 
 ## Limitations / known issues

@@ -23,7 +23,7 @@ import time
 
 from . import config as cfg
 from . import render, revyl
-from .diff import DEFAULT_MIN_SUPPORT, diff as run_diff
+from .diff import DEFAULT_MIN_SUPPORT, FAIL_ON_CHOICES, diff as run_diff
 from .model import Snapshot, from_graph_payload, from_snapshot_file
 
 _SHA_RE = re.compile(r"^[0-9a-f]{7,40}$", re.I)
@@ -125,7 +125,13 @@ def cmd_diff(args) -> int:
     limit = args.limit or int(conf.get("limit", 500) or 500)
     min_support = args.min_support if args.min_support is not None else int(
         conf.get("min_support", DEFAULT_MIN_SUPPORT) or DEFAULT_MIN_SUPPORT)
-    fail_on = args.fail_on or conf.get("fail_on") or "untested"
+    fail_on = str(args.fail_on or conf.get("fail_on") or "untested").strip().lower()
+    if fail_on not in FAIL_ON_CHOICES:
+        # A typo here used to fall through to "never fail", silently turning
+        # the CI gate off. Refuse instead.
+        _eprint(f"error: fail_on in {conf.get('_path') or 'config'} must be one of "
+                f"{', '.join(FAIL_ON_CHOICES)}; got {fail_on!r}")
+        return 2
 
     _eprint(f"atlas-diff: app={app}  base={base_ref}  head={head_ref}")
 
@@ -147,7 +153,7 @@ def cmd_diff(args) -> int:
 
     meta = {"base_label": base_label, "head_label": head_label, "app": app,
             "title": args.title or conf.get("title") or "Atlas map diff",
-            "embed_shots": bool(args.screenshot_dir)}
+            "embed_shots": bool(args.screenshot_dir), "fail_on": fail_on}
 
     md = render.render_markdown(result, meta)
     if args.md:
@@ -162,13 +168,7 @@ def cmd_diff(args) -> int:
     if not args.quiet:
         print(render.render_terminal(result, meta))
 
-    if fail_on == "none":
-        return 0
-    if fail_on == "untested":
-        return 1 if result.has_untested else 0
-    if fail_on == "changes":
-        return 1 if result.has_changes else 0
-    return 0
+    return 1 if result.gate_failed(fail_on) else 0
 
 
 def cmd_snapshot(args) -> int:
@@ -367,7 +367,7 @@ def build_parser() -> argparse.ArgumentParser:
     d.add_argument("--wait-for-map", action="store_true",
                    help="poll until the head build is mapped (handles exploration lag)")
     d.add_argument("--wait-timeout", type=int, help="seconds to wait for the map (default 300)")
-    d.add_argument("--fail-on", choices=["none", "untested", "changes"],
+    d.add_argument("--fail-on", choices=list(FAIL_ON_CHOICES),
                    help="exit non-zero on: untested changes (default), any change, or never")
     d.add_argument("-q", "--quiet", action="store_true")
     d.set_defaults(func=cmd_diff)

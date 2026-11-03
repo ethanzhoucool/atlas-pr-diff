@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 from .model import Edge, Screen, Snapshot
 
 DEFAULT_MIN_SUPPORT = 2          # ignore edges seen fewer than this many times
+FAIL_ON_CHOICES = ("none", "untested", "changes")   # values of --fail-on / fail_on
 NAV_CHURN_THRESHOLD = 3          # net nav deltas below this (with no wiring/semantic change) = noise
 
 
@@ -84,6 +85,25 @@ class DiffResult:
     @property
     def has_untested(self) -> bool:
         return bool(self.untested_screens)
+
+    @property
+    def data_missing(self) -> bool:
+        """One side has no Atlas map, so the comparison means nothing."""
+        return not self.base.screens or not self.head.screens
+
+    def gate_failed(self, fail_on: str) -> bool:
+        """Whether the CI gate trips for `fail_on` (one of FAIL_ON_CHOICES).
+
+        Missing Atlas data never trips it: an unmapped build is reported as
+        "Atlas data missing" (neutral), not as a failure.
+        """
+        if fail_on not in FAIL_ON_CHOICES:
+            raise ValueError(f"unknown fail_on {fail_on!r}")
+        if fail_on == "none" or self.data_missing:
+            return False
+        if fail_on == "untested":
+            return self.has_untested
+        return self.has_changes
 
     def summary_counts(self) -> dict:
         return {

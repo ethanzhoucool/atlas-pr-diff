@@ -30,6 +30,7 @@ inputs:
     description: >-
       When to fail the PR check: 'untested' (default — new/changed screens with
       no test coverage), 'changes' (any map change), or 'none' (never fail).
+      Missing Atlas data (an unmapped build) never fails the check.
     required: false
     default: "untested"
   revyl-api-key:
@@ -79,7 +80,9 @@ outputs:
     description: "The diff verdict (e.g. 'Map changed — review impact')."
     value: ${{ steps.diff.outputs.verdict }}
   exit-code:
-    description: "Raw exit code from `atlas-diff diff` (0 pass, 1 fail, 3 revyl error)."
+    description: >-
+      Raw exit code from `atlas-diff diff`: 0 pass, 1 gate tripped, 2 bad input
+      (e.g. a missing baseline file or an invalid fail-on), 3 revyl error.
     value: ${{ steps.diff.outputs.exit_code }}
 
 runs:
@@ -198,6 +201,10 @@ runs:
         fi
         if [ "$code" = "3" ]; then
           echo "::error::revyl CLI error — failing the job."
+          exit 1
+        fi
+        if [ "$code" = "2" ]; then
+          echo "::error::atlas-diff could not run with these inputs (missing baseline file or invalid fail-on); see the 'Run atlas-diff' step log."
           exit 1
         fi
         if [ "$code" != "0" ]; then
